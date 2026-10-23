@@ -37,7 +37,7 @@ function iguales(a, b) {
 }
 
 export default async (req) => {
-  const pin = Netlify.env.get("AGENDA_PIN");
+  const pin = (globalThis.Netlify?.env?.get("AGENDA_PIN") || process.env.AGENDA_PIN || "").trim();
   if (!pin) return json({ error: "Falta configurar AGENDA_PIN en Netlify." }, 500);
   if (!iguales(req.headers.get("x-agenda-pin") || "", pin)) return json({ error: "PIN incorrecto." }, 401);
 
