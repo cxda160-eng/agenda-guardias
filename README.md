@@ -51,6 +51,12 @@ netlify deploy --prod
 
 La agenda se actualiza sola cada 20 segundos y cada vez que volvés a abrirla. Sin señal muestra lo último que se cargó, pero para guardar cambios hace falta conexión.
 
+## Ver las guardias en el calendario del celular
+
+En la app, tocá **📲 Calendario del celular**. Ahí está el enlace de suscripción y las instrucciones para iPhone/iPad y para Google Calendar.
+Las guardias traen aviso la noche anterior y 1 hora antes (en iPhone hay que desactivar *Eliminar alertas* para ese calendario).
+El enlace depende del PIN: si cambiás el PIN, hay que volver a suscribirse.
+
 ## Cambiar el PIN
 
 Cambiá `AGENDA_PIN` en Netlify y volvé a desplegar. Los dos van a tener que ingresar el PIN nuevo; los turnos no se pierden.

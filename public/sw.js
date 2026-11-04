@@ -1,5 +1,5 @@
 // Service worker: guarda la app para abrirla sin conexión. Los datos (/api) siempre van a la red.
-const CACHE = "agenda-guardias-v1";
+const CACHE = "agenda-guardias-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

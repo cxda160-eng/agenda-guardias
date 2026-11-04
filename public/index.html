@@ -100,6 +100,13 @@ textarea{resize:vertical;min-height:54px}
 .login .card{padding:22px}
 .login h1{font-size:30px}
 .err-msg{color:var(--danger);font-size:14px;margin:0}
+.cal-sync .linkbox{display:flex;gap:8px;flex-wrap:wrap}
+.cal-sync .linkbox input{flex:1 1 220px;font-family:var(--f-mono);font-size:12px}
+.cal-sync h4{font-family:var(--f-display);font-weight:500;font-size:16px;margin:4px 0 0}
+.cal-sync ol{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
+.cal-sync .tabs{display:flex;gap:6px;flex-wrap:wrap}
+.cal-sync .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radius:8px;padding:6px 12px;background:var(--accent);color:var(--accent-ink)}
 </style>
 </head>
 <body>
@@ -126,9 +133,41 @@ textarea{resize:vertical;min-height:54px}
     <div class="who">
       <span class="sync" id="sync">Sincronizando…</span>
       <button id="btn-hoy" type="button">Ir a hoy</button>
+      <button id="btn-cal" type="button" aria-expanded="false" aria-controls="cal-sync">📲 Calendario del celular</button>
       <button id="btn-salir" type="button">Salir</button>
     </div>
   </header>
+
+  <section class="card cal-sync" id="cal-sync" hidden aria-label="Ver las guardias en el calendario del celular">
+    <h3>Ver las guardias en el calendario del celular</h3>
+    <p class="note" style="margin:0">Con este enlace, los turnos aparecen solos en tu calendario y se actualizan cuando alguien carga o cambia algo. Las guardias traen aviso la noche anterior y 1 hora antes.</p>
+    <div class="linkbox">
+      <input id="cal-url" type="text" readonly aria-label="Enlace del calendario">
+      <button id="cal-copiar" type="button">Copiar enlace</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="iphone" aria-selected="true">iPhone / iPad</button>
+      <button type="button" role="tab" data-tab="google" aria-selected="false">Android (Google Calendar)</button>
+    </div>
+    <div data-panel="iphone">
+      <ol>
+        <li>Abrí esta agenda en el iPhone o iPad y tocá el botón de abajo.</li>
+        <li>Confirmá con <b>Suscribirse</b> y después tocá <b>Agregar</b>.</li>
+        <li>Para recibir los avisos: <b>Ajustes → Calendario → Cuentas → Calendarios suscritos → Agenda de Guardias</b> y desactivá <b>Eliminar alertas</b>.</li>
+      </ol>
+      <p style="margin:8px 0 0"><a class="btnlink" id="cal-webcal" href="#">Suscribirme en este iPhone/iPad</a></p>
+    </div>
+    <div data-panel="google" hidden>
+      <ol>
+        <li>Copiá el enlace de arriba. Este paso <b>se hace desde la computadora</b>: la app de Google Calendar del celular no permite agregar enlaces.</li>
+        <li>En la computadora entrá a <b>calendar.google.com</b> con la misma cuenta de Google del celular.</li>
+        <li>A la izquierda, junto a <b>Otros calendarios</b>, tocá <b>+</b> → <b>Desde URL</b>, pegá el enlace y tocá <b>Agregar calendario</b>.</li>
+        <li>En el celular: Google Calendar → menú ☰ → <b>Configuración</b> → tocá <b>Agenda de Guardias</b> y activá <b>Sincronizar</b>.</li>
+      </ol>
+      <p class="note" style="margin:8px 0 0">Google actualiza los calendarios por enlace cada varias horas, así que un cambio de último momento puede tardar en verse. Google tampoco respeta los avisos del enlace: si querés alertas, configuralas para este calendario en Google Calendar → Configuración → Agenda de Guardias → Notificaciones.</p>
+    </div>
+    <p class="note" style="margin:0">No compartas este enlace: cualquiera que lo tenga ve tus turnos. Si cambiás el PIN en Netlify, el enlace cambia y hay que volver a suscribirse.</p>
+  </section>
 
   <section class="stats" aria-label="Resumen del mes">
     <div class="stat"><b id="s-guardias">–</b><span>Guardias en el mes</span></div>
@@ -378,6 +417,34 @@ for(const id of ['dia-lista','prox-lista']){
   $(id).addEventListener('click',e=>{const it=e.target.closest('.item');if(!it)return;const ev=eventos.find(x=>x.id===it.dataset.id);if(ev&&id==='prox-lista')elegirDia(ev.fecha);editar(it.dataset.id)});
   $(id).addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('item'))e.target.click()});
 }
+
+// Calendario del celular (enlace .ics con clave derivada del PIN)
+async function claveFeed(pin){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('agenda-feed:'+pin));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,32);
+}
+async function prepararCal(){
+  try{
+    const k=await claveFeed(sesion.pin);
+    const url=location.origin+'/api/calendario.ics?k='+k;
+    $('cal-url').value=url;
+    $('cal-webcal').href=url.replace(/^https?:/,'webcal:');
+  }catch(_){$('cal-url').value='No disponible en este navegador'}
+}
+$('btn-cal').onclick=async()=>{
+  const p=$('cal-sync');p.hidden=!p.hidden;$('btn-cal').setAttribute('aria-expanded',String(!p.hidden));
+  if(!p.hidden){await prepararCal();const android=/android/i.test(navigator.userAgent);elegirTab(android?'google':'iphone');p.scrollIntoView({block:'nearest'})}
+};
+function elegirTab(t){
+  document.querySelectorAll('.cal-sync [role=tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
+  document.querySelectorAll('.cal-sync [data-panel]').forEach(d=>d.hidden=d.dataset.panel!==t);
+}
+document.querySelectorAll('.cal-sync [role=tab]').forEach(b=>b.onclick=()=>elegirTab(b.dataset.tab));
+$('cal-copiar').onclick=()=>{
+  const v=$('cal-url').value;
+  const fallback=()=>{$('cal-url').focus();$('cal-url').select();toast('Seleccioné el enlace: copialo con Ctrl+C o mantené presionado.')};
+  if(navigator.clipboard)navigator.clipboard.writeText(v).then(()=>toast('Enlace copiado')).catch(fallback);else fallback();
+};
 
 // Sesión
 function mostrarApp(){$('login').hidden=true;$('app').hidden=false;resetForm();render();cargar();iniciarSync()}
