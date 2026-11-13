@@ -49,7 +49,7 @@ netlify deploy --prod
    - **Android (Chrome):** menú ⋮ → *Instalar app* o *Agregar a pantalla principal*.
    - **iPhone (Safari):** botón Compartir → *Agregar a inicio*.
 
-La agenda se actualiza sola cada 20 segundos y cada vez que volvés a abrirla. Sin señal muestra lo último que se cargó, pero para guardar cambios hace falta conexión.
+La agenda se actualiza sola cada 2 minutos mientras está abierta y cada vez que volvés a abrirla (si pasaron más de 30 segundos). Sin señal muestra lo último que se cargó, pero para guardar cambios hace falta conexión.
 
 ## Ver las guardias en el calendario del celular
 

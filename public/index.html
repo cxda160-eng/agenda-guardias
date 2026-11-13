@@ -131,7 +131,7 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
       <p class="sub">Guardias, fellowship y planes compartidos.</p>
     </div>
     <div class="who">
-      <span class="sync" id="sync">Sincronizando…</span>
+      <span class="sync" id="sync" role="button" tabindex="0" title="Tocá para actualizar" style="cursor:pointer">Sincronizando…</span>
       <button id="btn-hoy" type="button">Ir a hoy</button>
       <button id="btn-cal" type="button" aria-expanded="false" aria-controls="cal-sync">📲 Calendario del celular</button>
       <button id="btn-salir" type="button">Salir</button>
@@ -334,10 +334,11 @@ function renderStats(){
 function render(){renderCal();renderDia();renderProx();renderStats()}
 
 // Sincronización
-let cargando=false;
+let cargando=false, ultimaCarga=0;
 async function cargar(silencioso){
   if(cargando)return; cargando=true;
   try{
+    ultimaCarga=Date.now();
     const data=await api('GET');
     eventos=Array.isArray(data)?data.filter(e=>e&&e.fecha):[];
     ls.set('ag_cache',JSON.stringify(eventos));
@@ -352,10 +353,15 @@ async function cargar(silencioso){
 let timer=null;
 function iniciarSync(){
   clearInterval(timer);
-  timer=setInterval(()=>{if(document.visibilityState==='visible')cargar(true)},20000);
+  // Cada 2 minutos mientras la app está a la vista (antes 20 s): menos consumo de créditos de Netlify
+  timer=setInterval(()=>{if(document.visibilityState==='visible')cargar(true)},120000);
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&sesion.pin)cargar(true)});
-window.addEventListener('online',()=>{if(sesion.pin)cargar(true)});
+// Al volver a la app, actualiza solo si pasaron más de 30 s desde la última carga
+const cargarSiHaceFalta=()=>{if(sesion.pin&&Date.now()-ultimaCarga>30000)cargar(true)};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')cargarSiHaceFalta()});
+window.addEventListener('online',cargarSiHaceFalta);
+// Tocar «Actualizado hh:mm» fuerza una actualización
+$('sync').addEventListener('click',()=>{if(sesion.pin)cargar(true)});
 
 // Formulario
 function aplicarTipo(){const t=TIPOS[$('f-tipo').value];$('f-ini').value=t.ini;$('f-fin').value=t.fin}
