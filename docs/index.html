@@ -139,6 +139,9 @@ textarea{resize:vertical;min-height:54px}
 .tag.ok{color:var(--t-con);border-color:var(--t-con)}
 .tag.pend{color:var(--t-g12);border-color:var(--t-g12)}
 .tag.ced{color:var(--muted)}
+.tag.fijo{color:var(--t-noc);border-color:var(--t-noc)}
+.valores select{width:auto;padding:4px 6px;font-size:14px}
+.valores input:disabled{opacity:.5}
 .item.cedida .t{text-decoration:line-through;color:var(--muted)}
 .chip-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:1px}
 .valores summary{cursor:pointer;font-weight:700}
@@ -223,7 +226,7 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
     </div>
     <details class="valores" id="valores">
       <summary>Valor de cada guardia</summary>
-      <p class="note" style="margin:6px 0">Poné el valor bruto una vez por tipo y lugar, y tocá <b>Aplicar</b>: se copia a todas las guardias de ese grupo que todavía no cobraste, y a las que cargues después. Dejalo vacío para las que no se cobran, como las pasivas.</p>
+      <p class="note" style="margin:6px 0">Elegí cómo se cobra cada tipo y lugar: <b>Por guardia</b> (con su valor bruto), <b>Sueldo fijo</b> o <b>Sin cobro</b>, como las pasivas. Tocá <b>Aplicar</b> y se copia a todas las guardias de ese grupo que todavía no cobraste, y a las que cargues después.</p>
       <div class="tabla-wrap"><table class="tabla" id="valores-tabla"></table></div>
     </details>
   </section>
@@ -328,6 +331,6 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
 </div>
 <div id="toast" hidden></div>
 
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 </body>
 </html>

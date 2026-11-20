@@ -79,7 +79,7 @@ function itemHTML(e,conFecha){
   const quien=e.creadoPor?` · cargó ${esc(e.creadoPor)}`:'';
   const tags=(e.cambio==='cedida'?`<span class="tag ced">cedida${e.colega?' a '+esc(e.colega):''}</span>`:'')
     +(e.cambio==='tomada'?`<span class="tag">cubrí${e.colega?' a '+esc(e.colega):''}</span>`:'')
-    +(e.monto&&!cedida(e)?`<span class="tag ${e.cobrada?'ok':'pend'}">${fmt$(e.monto)} · ${e.cobrada?'cobrada':'a cobrar'}</span>`:'');
+    +(e.pago==='fijo'&&!cedida(e)?'<span class="tag fijo">sueldo fijo</span>':'')+(e.monto&&!cedida(e)?`<span class="tag ${e.cobrada?'ok':'pend'}">${fmt$(e.monto)} · ${e.cobrada?'cobrada':'a cobrar'}</span>`:'');
   return `<div class="item${cedida(e)?' cedida':''}" style="--c:${color(e.tipo)}" data-id="${esc(e.id)}" tabindex="0" role="button">
     <i></i><div><div class="t">${esc((TIPOS[e.tipo]||TIPOS.otro).label)}${tags}</div>
     <div class="m mono">${conFecha?fechaCorta(e.fecha)+' · ':''}${rango(e)}${horas(e)?' · '+horas(e)+' h':''}</div>
@@ -116,37 +116,54 @@ function gruposValor(){
   for(const e of eventos){
     if(!COBRABLES.includes(e.tipo)||cedida(e))continue;
     const k=grupoMonto(e);
-    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,valor:0,t:0};
-    g.n++; const tt=e.editado||e.creado||0; if(e.monto>0&&tt>=g.t){g.valor=e.monto;g.t=tt}
+    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,valor:0,t:0,fijo:0};
+    g.n++; if(e.pago==='fijo')g.fijo++;
+    const tt=e.editado||e.creado||0; if(e.monto>0&&tt>=g.t){g.valor=e.monto;g.t=tt}
     m.set(k,g);
   }
-  return [...m.values()].sort((a,b)=>b.n-a.n);
+  return [...m.values()].map(g=>({...g,modo:g.fijo*2>=g.n&&g.fijo?'fijo':g.valor>0?'guardia':'sin'})).sort((a,b)=>b.n-a.n);
 }
+// Modo de cobro de un grupo, para que las guardias nuevas lo hereden
+const modoGrupo=k=>(gruposValor().find(g=>g.k===k)||{}).modo||'sin';
 let firmaValores='';
 function renderValores(){
   const gs=gruposValor();
-  const firma=JSON.stringify(gs.map(g=>[g.k,g.n,g.valor]));
+  const firma=JSON.stringify(gs.map(g=>[g.k,g.n,g.valor,g.modo]));
   if(firma===firmaValores)return; firmaValores=firma;
   const tb=$('valores-tabla');
-  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Cargadas</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.n}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.valor||''}" placeholder="sin cobro" aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
+  const opc=(i,g)=>`<select id="modo-${i}" aria-label="Cómo se cobra ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}">
+      <option value="guardia"${g.modo==='guardia'?' selected':''}>Por guardia</option>
+      <option value="fijo"${g.modo==='fijo'?' selected':''}>Sueldo fijo</option>
+      <option value="sin"${g.modo==='sin'?' selected':''}>Sin cobro</option></select>`;
+  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Cargadas</th><th>Cobro</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.n}</td><td>${opc(i,g)}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.modo==='guardia'&&g.valor?g.valor:''}" placeholder="—"${g.modo==='guardia'?'':' disabled'} aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
   tb.dataset.json=JSON.stringify(gs);
-  if(!gs.some(g=>g.valor>0))$('valores').open=true;
+  if(!gs.some(g=>g.modo!=='sin'))$('valores').open=true;
 }
+$('valores-tabla').addEventListener('change',ev=>{
+  const s=ev.target.closest('select[id^="modo-"]');if(!s)return;
+  const i=s.id.slice(5), inp=$('valor-'+i);
+  inp.disabled=s.value!=='guardia'; if(s.value==='guardia')inp.focus(); else inp.value='';
+});
 $('valores-tabla').addEventListener('click',async ev=>{
   const b=ev.target.closest('button[data-valor]');if(!b)return;
-  const g=JSON.parse($('valores-tabla').dataset.json||'[]')[Number(b.dataset.valor)];if(!g)return;
-  const v=Math.round(Number($('valor-'+b.dataset.valor).value)||0);
-  const objetivo=eventos.filter(e=>grupoMonto(e)===g.k&&!cedida(e)&&!e.cobrada&&(v>0?e.monto!==v:e.monto>0));
-  if(!objetivo.length){toast('Ese grupo ya tiene ese valor.');return}
+  const i=b.dataset.valor;
+  const g=JSON.parse($('valores-tabla').dataset.json||'[]')[Number(i)];if(!g)return;
+  const modo=$('modo-'+i).value;
+  const v=modo==='guardia'?Math.round(Number($('valor-'+i).value)||0):0;
+  if(modo==='guardia'&&!v){toast('Escribí el valor bruto de esa guardia.');$('valor-'+i).focus();return}
+  const pago=modo==='fijo'?'fijo':'';
+  const objetivo=eventos.filter(e=>grupoMonto(e)===g.k&&!cedida(e)&&!e.cobrada&&((e.monto||0)!==v||(e.pago||'')!==pago));
+  if(!objetivo.length){toast('Ese grupo ya está así.');return}
   b.disabled=true;
   try{
-    for(let i=0;i<objetivo.length;i+=400){
+    for(let j=0;j<objetivo.length;j+=400){
       const batch=writeBatch(db);
-      for(const e of objetivo.slice(i,i+400))batch.set(doc(turnosCol,e.id),permitido({...e,monto:v,editado:Date.now()}));
+      for(const e of objetivo.slice(j,j+400))batch.set(doc(turnosCol,e.id),permitido({...e,monto:v,pago,editado:Date.now()}));
       await batch.commit();
     }
     firmaValores='';
-    toast(v>0?`${fmt$(v)} aplicado a ${objetivo.length} guardias (${CORTO[g.tipo]} · ${g.nombre})`:`${CORTO[g.tipo]} · ${g.nombre}: sin cobro (${objetivo.length} guardias)`);
+    const que=modo==='guardia'?fmt$(v)+' por guardia':modo==='fijo'?'sueldo fijo':'sin cobro';
+    toast(`${CORTO[g.tipo]} · ${g.nombre}: ${que} (${objetivo.length} guardias)`);
   }catch(err){errGuardar(err)}finally{b.disabled=false}
 });
 function renderCobro(){
@@ -196,6 +213,7 @@ const permitido=e=>{
   if(e.editado)o.editado=Number(e.editado);
   const m=Math.round(Number(e.monto));if(m>0&&m<1e8)o.monto=m;
   if(e.cobrada)o.cobrada=true;
+  if(e.pago==='fijo'){o.pago='fijo';delete o.monto;delete o.cobrada}
   if(e.cambio==='cedida'||e.cambio==='tomada'){o.cambio=e.cambio;const c=String(e.colega||'').trim().slice(0,40);if(c)o.colega=c}
   return o;
 };
@@ -317,9 +335,10 @@ $('f').addEventListener('submit',ev=>{
   ev.preventDefault();
   const fecha=$('f-fecha').value;if(!fecha){toast('Elegí una fecha.');return}
   const base={tipo:$('f-tipo').value,ini:$('f-ini').value,fin:$('f-fin').value,lugar:$('f-lugar').value.trim(),nota:$('f-nota').value.trim(),creadoPor:sesion.nombre,fecha,monto:$('f-monto').value,cobrada:$('f-cobrada').checked,cambio:$('f-cambio').value,colega:$('f-colega').value};
+  if(!editId&&!(Math.round(Number(base.monto))>0)&&modoGrupo(grupoMonto(base))==='fijo')base.pago='fijo';
   if(editId){
     const prev=eventos.find(x=>x.id===editId)||{};
-    setDoc(doc(turnosCol,editId),permitido({...base,creadoPor:prev.creadoPor||sesion.nombre,creado:prev.creado,editado:Date.now()})).catch(errGuardar);
+    setDoc(doc(turnosCol,editId),permitido({...base,pago:Math.round(Number(base.monto))>0?'':(prev.pago||''),creadoPor:prev.creadoPor||sesion.nombre,creado:prev.creado,editado:Date.now()})).catch(errGuardar);
     toast('Cambios guardados');
   }else{
     const modo=$('f-rep').value;
@@ -423,7 +442,7 @@ $('cal-descargar').onclick=()=>{
 };
 
 // Respaldo: exportar e importar todos los turnos
-const CAMPOS=['tipo','fecha','ini','fin','lugar','nota','creadoPor','creado','monto','cobrada','cambio','colega'];
+const CAMPOS=['tipo','fecha','ini','fin','lugar','nota','creadoPor','creado','monto','cobrada','cambio','colega','pago'];
 async function huella(e){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode([e.tipo,e.fecha,e.ini,e.fin,e.lugar,e.nota].join('|')));
   return 'r-'+[...new Uint8Array(buf)].slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('');
