@@ -252,8 +252,8 @@ function borrarTurno(b){
   const copia={...ev};delete copia.id;
   deleteDoc(doc(turnosCol,ev.id)).catch(errGuardar);
   if(editId===ev.id)resetForm();
-  toast((TIPOS[ev.tipo]||TIPOS.otro).label+' del '+fechaCorta(ev.fecha)+' borrada','Deshacer',()=>{
-    setDoc(doc(turnosCol,ev.id),permitido(copia)).catch(errGuardar);toast('Guardia recuperada');
+  toast('Borrado: '+(TIPOS[ev.tipo]||TIPOS.otro).label+' del '+fechaCorta(ev.fecha),'Deshacer',()=>{
+    setDoc(doc(turnosCol,ev.id),permitido(copia)).catch(errGuardar);toast('Turno recuperado');
   });
 }
 
