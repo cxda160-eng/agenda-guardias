@@ -130,11 +130,12 @@ function rapidosUsados(){
   const m=new Map();
   for(const e of eventos){
     if(!TIPOS[e.tipo]||e.tipo==='plan')continue;
-    const k=[e.tipo,clave(e.lugar),e.ini||'',e.fin||''].join('|');
-    const x=m.get(k)||{n:0,e};x.n++;m.set(k,x);
+    const nota=!clave(e.lugar)&&(e.nota||'').trim().length<=25?(e.nota||'').trim():'';
+    const k=[e.tipo,clave(e.lugar),clave(nota),e.ini||'',e.fin||''].join('|');
+    const x=m.get(k)||{n:0,e,nota};x.n++;m.set(k,x);
   }
   const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
-  return [...m.values()].filter(x=>x.n>=2).sort((a,b)=>b.n-a.n).slice(0,6).map(({e})=>({tipo:e.tipo,ini:e.ini||'',fin:e.fin||'',lugar:lug.get(clave(e.lugar))||''}));
+  return [...m.values()].filter(x=>x.n>=2).sort((a,b)=>b.n-a.n).slice(0,6).map(({e,nota})=>({tipo:e.tipo,ini:e.ini||'',fin:e.fin||'',lugar:lug.get(clave(e.lugar))||'',nota}));
 }
 let firmaSug='';
 function actualizarSugerencias(){
@@ -142,7 +143,7 @@ function actualizarSugerencias(){
   const firma=JSON.stringify([lugares,rap]); if(firma===firmaSug)return; firmaSug=firma;
   $('lugares').innerHTML=lugares.map(l=>`<option value="${esc(l)}"></option>`).join('');
   $('lugar-chips').innerHTML=lugares.slice(0,6).map(l=>`<button type="button" class="chip-btn" data-lugar="${esc(l)}">${esc(l)}</button>`).join('');
-  $('rapidos').innerHTML=rap.map((r,i)=>`<button type="button" class="chip-btn" data-r="${i}" style="--c:${color(r.tipo)}"><i></i>${esc(CORTO[r.tipo])}${r.lugar?' · '+esc(r.lugar):''}${r.ini&&r.tipo!=='g24'&&r.tipo!=='noc'?' · '+r.ini:''}</button>`).join('');
+  $('rapidos').innerHTML=rap.map((r,i)=>`<button type="button" class="chip-btn" data-r="${i}" style="--c:${color(r.tipo)}"><i></i>${esc(CORTO[r.tipo])}${r.lugar?' · '+esc(r.lugar):r.nota?' · '+esc(r.nota):''}${r.ini&&r.tipo!=='g24'&&r.tipo!=='noc'?' · '+r.ini:''}</button>`).join('');
   $('rapidos').dataset.json=JSON.stringify(rap);
   $('rapidos-box').hidden=!rap.length;
   marcarLugar();
@@ -153,8 +154,8 @@ $('f-lugar').addEventListener('input',marcarLugar);
 $('rapidos').addEventListener('click',e=>{
   const b=e.target.closest('.chip-btn');if(!b)return;
   const r=JSON.parse($('rapidos').dataset.json||'[]')[Number(b.dataset.r)];if(!r)return;
-  $('f-tipo').value=r.tipo;$('f-ini').value=r.ini;$('f-fin').value=r.fin;$('f-lugar').value=r.lugar;marcarLugar();vistaPrevia();
-  toast(CORTO[r.tipo]+(r.lugar?' · '+r.lugar:'')+': elegí la fecha y guardá');
+  $('f-tipo').value=r.tipo;$('f-ini').value=r.ini;$('f-fin').value=r.fin;$('f-lugar').value=r.lugar;$('f-nota').value=r.nota||'';marcarLugar();vistaPrevia();
+  toast(CORTO[r.tipo]+(r.lugar?' · '+r.lugar:r.nota?' · '+r.nota:'')+': elegí la fecha y guardá');
 });
 
 // Repetición: fechas de una guardia fija
