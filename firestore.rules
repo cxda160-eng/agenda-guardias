@@ -14,14 +14,18 @@ service cloud.firestore {
     }
 
     function turnoValido(d) {
-      return d.keys().hasOnly(['tipo', 'fecha', 'ini', 'fin', 'lugar', 'nota', 'creadoPor', 'creado', 'editado'])
+      return d.keys().hasOnly(['tipo', 'fecha', 'ini', 'fin', 'lugar', 'nota', 'creadoPor', 'creado', 'editado', 'monto', 'cobrada', 'cambio', 'colega'])
         && d.keys().hasAll(['tipo', 'fecha'])
         && d.tipo in ['g24', 'g12', 'noc', 'fel', 'con', 'plan', 'otro']
         && d.fecha is string && d.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && horaValida(d.get('ini', '')) && horaValida(d.get('fin', ''))
         && d.get('lugar', '') is string && d.get('lugar', '').size() <= 80
         && d.get('nota', '') is string && d.get('nota', '').size() <= 300
-        && d.get('creadoPor', '') is string && d.get('creadoPor', '').size() <= 40;
+        && d.get('creadoPor', '') is string && d.get('creadoPor', '').size() <= 40
+        && d.get('monto', 0) is number && d.get('monto', 0) >= 0 && d.get('monto', 0) < 100000000
+        && d.get('cobrada', false) is bool
+        && d.get('cambio', '') in ['', 'cedida', 'tomada']
+        && d.get('colega', '') is string && d.get('colega', '').size() <= 40;
     }
 
     match /agendas/{agenda}/meta/info {

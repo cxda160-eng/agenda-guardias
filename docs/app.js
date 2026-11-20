@@ -69,7 +69,7 @@ function renderCal(){
     if(i>=35&&d.getMonth()!==vista.getMonth())break;
     const s=iso(d), ev=porDia(s);
     const cls=['day',d.getMonth()!==vista.getMonth()?'out':'',s===hoyS?'today':'',s===sel?'sel':''].join(' ');
-    const chips=ev.slice(0,3).map(e=>`<div class="chip" style="--c:${color(e.tipo)}">${e.ini?e.ini+' ':''}${esc((TIPOS[e.tipo]||TIPOS.otro).label.split(' /')[0])}</div>`).join('');
+    const chips=ev.slice(0,3).map(e=>`<div class="chip${cedida(e)?' cedida':''}" style="--c:${color(e.tipo)}">${e.ini?e.ini+' ':''}${esc((TIPOS[e.tipo]||TIPOS.otro).label.split(' /')[0])}</div>`).join('');
     const more=ev.length>3?`<div class="more">+${ev.length-3} más</div>`:'';
     cells.push(`<div class="${cls}" data-d="${s}" tabindex="0" role="button" aria-label="${fechaLarga(s)}, ${ev.length} turnos"><span class="num">${d.getDate()}</span>${chips}${more}</div>`);
   }
@@ -77,8 +77,11 @@ function renderCal(){
 }
 function itemHTML(e,conFecha){
   const quien=e.creadoPor?` · cargó ${esc(e.creadoPor)}`:'';
-  return `<div class="item" style="--c:${color(e.tipo)}" data-id="${esc(e.id)}" tabindex="0" role="button">
-    <i></i><div><div class="t">${esc((TIPOS[e.tipo]||TIPOS.otro).label)}</div>
+  const tags=(e.cambio==='cedida'?`<span class="tag ced">cedida${e.colega?' a '+esc(e.colega):''}</span>`:'')
+    +(e.cambio==='tomada'?`<span class="tag">cubrí${e.colega?' a '+esc(e.colega):''}</span>`:'')
+    +(e.monto&&!cedida(e)?`<span class="tag ${e.cobrada?'ok':'pend'}">${fmt$(e.monto)} · ${e.cobrada?'cobrada':'a cobrar'}</span>`:'');
+  return `<div class="item${cedida(e)?' cedida':''}" style="--c:${color(e.tipo)}" data-id="${esc(e.id)}" tabindex="0" role="button">
+    <i></i><div><div class="t">${esc((TIPOS[e.tipo]||TIPOS.otro).label)}${tags}</div>
     <div class="m mono">${conFecha?fechaCorta(e.fecha)+' · ':''}${rango(e)}${horas(e)?' · '+horas(e)+' h':''}</div>
     ${e.lugar||e.nota||quien?`<div class="m">${esc(e.lugar)}${e.lugar&&e.nota?' — ':''}${esc(e.nota)}${quien}</div>`:''}</div>
     <button type="button" class="item-del" data-del="${esc(e.id)}" aria-label="Borrar ${esc((TIPOS[e.tipo]||TIPOS.otro).label)} del ${fechaLarga(e.fecha)}">Borrar</button></div>`;
@@ -96,16 +99,41 @@ function renderProx(){
 function renderStats(){
   const y=vista.getFullYear(),m=vista.getMonth();
   const delMes=eventos.filter(e=>{const d=parse(e.fecha);return d.getFullYear()===y&&d.getMonth()===m});
-  const g=delMes.filter(e=>TIPOS[e.tipo]?.guardia);
+  const g=delMes.filter(e=>TIPOS[e.tipo]?.guardia&&!cedida(e));
   $('s-guardias').textContent=g.length;
   $('s-horas').textContent=g.reduce((s,e)=>s+horas(e),0)+' h';
-  const ocupados=new Set(delMes.filter(e=>e.tipo!=='plan').map(e=>e.fecha));
+  const ocupados=new Set(delMes.filter(e=>e.tipo!=='plan'&&!cedida(e)).map(e=>e.fecha));
   $('s-libres').textContent=new Date(y,m+1,0).getDate()-ocupados.size;
   const now=new Date(); const ahora=iso(now)+' '+pad(now.getHours())+':'+pad(now.getMinutes());
-  const p=eventos.filter(e=>TIPOS[e.tipo]?.guardia&&(e.fecha+' '+(e.ini||'00:00'))>=ahora).sort((a,b)=>(a.fecha+a.ini).localeCompare(b.fecha+b.ini))[0];
+  const p=eventos.filter(e=>TIPOS[e.tipo]?.guardia&&!cedida(e)&&(e.fecha+' '+(e.ini||'00:00'))>=ahora).sort((a,b)=>(a.fecha+a.ini).localeCompare(b.fecha+b.ini))[0];
   $('s-prox').textContent=p?fechaCorta(p.fecha)+(p.ini?' · '+p.ini:''):'Sin guardias cargadas';
 }
-function render(){renderCal();renderDia();renderProx();renderStats();actualizarSugerencias();vistaPrevia();actualizarOrden()}
+function renderCobro(){
+  const y=vista.getFullYear(),m=vista.getMonth();
+  const lista=eventos.filter(e=>{const d=parse(e.fecha);return d.getFullYear()===y&&d.getMonth()===m&&e.monto>0&&!cedida(e)});
+  $('cobro').hidden=!lista.length; if(!lista.length)return;
+  $('cobro-mes').textContent=MESES[m]+' '+y;
+  const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
+  const grupos=new Map();
+  for(const e of lista){const k=clave(e.lugar)||'(sin lugar)';const g=grupos.get(k)||{nombre:lug.get(clave(e.lugar))||'Sin lugar',n:0,total:0,cobrado:0,pend:[]};g.n++;g.total+=e.monto;if(e.cobrada)g.cobrado+=e.monto;else g.pend.push(e.id);grupos.set(k,g)}
+  const total=lista.reduce((s,e)=>s+e.monto,0), cobrado=lista.filter(e=>e.cobrada).reduce((s,e)=>s+e.monto,0);
+  $('cobro-tot').innerHTML=`<div><b>${fmt$(total)}</b><span>Total bruto</span></div><div><b>${fmt$(cobrado)}</b><span>Cobrado</span></div><div class="pend"><b>${fmt$(total-cobrado)}</b><span>Pendiente</span></div>`;
+  const filas=[...grupos.entries()].sort((a,b)=>b[1].total-a[1].total).map(([k,g])=>`<tr><td>${esc(g.nombre)}</td><td class="n">${g.n}</td><td class="n">${fmt$(g.total)}</td><td class="n">${fmt$(g.total-g.cobrado)}</td><td>${g.pend.length?`<button type="button" data-cobrar="${esc(k)}">Marcar cobradas</button>`:'<span class="tag ok">al día</span>'}</td></tr>`).join('');
+  $('cobro-tabla').innerHTML=`<thead><tr><th>Lugar</th><th class="n">Guardias</th><th class="n">Total</th><th class="n">Pendiente</th><th></th></tr></thead><tbody>${filas}</tbody>`;
+  $('cobro-tabla').dataset.grupos=JSON.stringify(Object.fromEntries([...grupos.entries()].map(([k,g])=>[k,{nombre:g.nombre,pend:g.pend}])));
+}
+$('cobro-tabla').addEventListener('click',async ev=>{
+  const b=ev.target.closest('button[data-cobrar]');if(!b)return;
+  const g=JSON.parse($('cobro-tabla').dataset.grupos||'{}')[b.dataset.cobrar];if(!g||!g.pend.length)return;
+  if(!b.dataset.c){b.dataset.c='1';b.classList.add('primary');b.textContent=`Confirmar (${g.pend.length})`;return}
+  b.disabled=true;
+  try{
+    const batch=writeBatch(db);
+    for(const id of g.pend){const e=eventos.find(x=>x.id===id);if(e)batch.set(doc(turnosCol,id),permitido({...e,cobrada:true,editado:Date.now()}))}
+    await batch.commit();toast(g.pend.length+' guardias de '+g.nombre+' marcadas como cobradas');
+  }catch(err){errGuardar(err)}
+});
+function render(){renderCobro();renderCal();renderDia();renderProx();renderStats();actualizarSugerencias();vistaPrevia();actualizarOrden()}
 
 // Sincronización en vivo
 function escuchar(){
@@ -120,7 +148,16 @@ function escuchar(){
 }
 window.addEventListener('offline',()=>setSync('Sin conexión · los cambios se guardan al volver la señal',true));
 
-const permitido=e=>({tipo:e.tipo,fecha:e.fecha,ini:e.ini||'',fin:e.fin||'',lugar:(e.lugar||'').slice(0,80),nota:(e.nota||'').slice(0,300),creadoPor:(e.creadoPor||'').slice(0,40),creado:Number(e.creado)||Date.now(),...(e.editado?{editado:Number(e.editado)}:{})});
+const permitido=e=>{
+  const o={tipo:e.tipo,fecha:e.fecha,ini:e.ini||'',fin:e.fin||'',lugar:(e.lugar||'').slice(0,80),nota:(e.nota||'').slice(0,300),creadoPor:(e.creadoPor||'').slice(0,40),creado:Number(e.creado)||Date.now()};
+  if(e.editado)o.editado=Number(e.editado);
+  const m=Math.round(Number(e.monto));if(m>0&&m<1e8)o.monto=m;
+  if(e.cobrada)o.cobrada=true;
+  if(e.cambio==='cedida'||e.cambio==='tomada'){o.cambio=e.cambio;const c=String(e.colega||'').trim().slice(0,40);if(c)o.colega=c}
+  return o;
+};
+const fmt$=n=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n||0);
+const cedida=e=>e.cambio==='cedida';
 const errGuardar=err=>{console.error(err);toast(err&&err.code==='permission-denied'?'Firebase rechazó el cambio: revisá las reglas de la base.':'No se pudo guardar el cambio.')};
 
 // Lugares y accesos rápidos, a partir de lo que ya está cargado
@@ -154,12 +191,12 @@ function actualizarSugerencias(){
   marcarLugar();
 }
 function marcarLugar(){const k=clave($('f-lugar').value);$('lugar-chips').querySelectorAll('.chip-btn').forEach(b=>b.setAttribute('aria-pressed',String(clave(b.dataset.lugar)===k&&!!k)))}
-$('lugar-chips').addEventListener('click',e=>{const b=e.target.closest('.chip-btn');if(!b)return;$('f-lugar').value=b.dataset.lugar;marcarLugar()});
+$('lugar-chips').addEventListener('click',e=>{const b=e.target.closest('.chip-btn');if(!b)return;$('f-lugar').value=b.dataset.lugar;marcarLugar();montoSugerido()});
 $('f-lugar').addEventListener('input',marcarLugar);
 $('rapidos').addEventListener('click',e=>{
   const b=e.target.closest('.chip-btn');if(!b)return;
   const r=JSON.parse($('rapidos').dataset.json||'[]')[Number(b.dataset.r)];if(!r)return;
-  $('f-tipo').value=r.tipo;$('f-ini').value=r.ini;$('f-fin').value=r.fin;$('f-lugar').value=r.lugar;$('f-nota').value=r.nota||'';marcarLugar();vistaPrevia();
+  $('f-tipo').value=r.tipo;$('f-ini').value=r.ini;$('f-fin').value=r.fin;$('f-lugar').value=r.lugar;$('f-nota').value=r.nota||'';marcarLugar();montoSugerido();vistaPrevia();
   toast(CORTO[r.tipo]+(r.lugar?' · '+r.lugar:r.nota?' · '+r.nota:'')+': elegí la fecha y guardá');
 });
 
@@ -196,17 +233,31 @@ function vistaPrevia(){
 ['f-rep','f-hasta','f-fecha','f-tipo','f-ini'].forEach(id=>$(id).addEventListener('change',vistaPrevia));
 $('f-dias').addEventListener('change',vistaPrevia);
 
+// Monto sugerido: el último cargado para el mismo tipo y lugar
+function montoSugerido(){
+  if(editId||$('f-monto').dataset.manual)return;
+  const tipo=$('f-tipo').value,k=clave($('f-lugar').value);
+  const prev=eventos.filter(e=>e.tipo===tipo&&clave(e.lugar)===k&&e.monto>0).sort((a,b)=>(b.creado||0)-(a.creado||0))[0];
+  $('f-monto').value=prev?prev.monto:'';
+}
+$('f-monto').addEventListener('input',()=>{$('f-monto').dataset.manual=$('f-monto').value?'1':''});
+['f-tipo','f-lugar'].forEach(id=>$(id).addEventListener('change',montoSugerido));
+$('f-lugar').addEventListener('input',montoSugerido);
+$('f-cambio').addEventListener('change',()=>{$('colega-label').hidden=!$('f-cambio').value;if($('f-cambio').value)$('f-colega').focus()});
+
 // Formulario
 function aplicarTipo(){const t=TIPOS[$('f-tipo').value];$('f-ini').value=t.ini;$('f-fin').value=t.fin}
 function resetForm(){
   editId=null;$('f').reset();$('f-tipo').value='g24';aplicarTipo();$('f-fecha').value=sel;
-  $('f-hasta').value='';$('f-dias').querySelectorAll('input').forEach(i=>i.checked=false);$('rep-row').hidden=false;marcarLugar();vistaPrevia();
+  $('f-monto').dataset.manual='';$('f-cobrada').checked=false;$('f-cambio').value='';$('f-colega').value='';$('colega-label').hidden=true;$('f-hasta').value='';$('f-dias').querySelectorAll('input').forEach(i=>i.checked=false);$('rep-row').hidden=false;marcarLugar();vistaPrevia();
+  montoSugerido();
   $('form-titulo').textContent='Agregar turno';$('f-cancelar').hidden=true;$('f-borrar').hidden=true;$('f-borrar').textContent='Eliminar';$('f-borrar').dataset.c='';
 }
 function editar(id){
   const e=eventos.find(x=>x.id===id);if(!e)return;
   editId=id;$('f-tipo').value=TIPOS[e.tipo]?e.tipo:'otro';$('f-fecha').value=e.fecha;$('f-ini').value=e.ini||'';$('f-fin').value=e.fin||'';
   $('f-lugar').value=e.lugar||'';$('f-nota').value=e.nota||'';$('rep-row').hidden=true;marcarLugar();
+  $('f-monto').value=e.monto||'';$('f-cobrada').checked=!!e.cobrada;$('f-cambio').value=e.cambio||'';$('f-colega').value=e.colega||'';$('colega-label').hidden=!e.cambio;
   $('form-titulo').textContent='Editar turno';$('f-cancelar').hidden=false;$('f-borrar').hidden=false;$('f-borrar').textContent='Eliminar';$('f-borrar').dataset.c='';
   $('form-card').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'nearest'});
 }
@@ -222,7 +273,7 @@ $('f-borrar').addEventListener('click',()=>{
 $('f').addEventListener('submit',ev=>{
   ev.preventDefault();
   const fecha=$('f-fecha').value;if(!fecha){toast('Elegí una fecha.');return}
-  const base={tipo:$('f-tipo').value,ini:$('f-ini').value,fin:$('f-fin').value,lugar:$('f-lugar').value.trim(),nota:$('f-nota').value.trim(),creadoPor:sesion.nombre,fecha};
+  const base={tipo:$('f-tipo').value,ini:$('f-ini').value,fin:$('f-fin').value,lugar:$('f-lugar').value.trim(),nota:$('f-nota').value.trim(),creadoPor:sesion.nombre,fecha,monto:$('f-monto').value,cobrada:$('f-cobrada').checked,cambio:$('f-cambio').value,colega:$('f-colega').value};
   if(editId){
     const prev=eventos.find(x=>x.id===editId)||{};
     setDoc(doc(turnosCol,editId),permitido({...base,creadoPor:prev.creadoPor||sesion.nombre,creado:prev.creado,editado:Date.now()})).catch(errGuardar);
@@ -315,7 +366,7 @@ $('cal-descargar').onclick=()=>{
 };
 
 // Respaldo: exportar e importar todos los turnos
-const CAMPOS=['tipo','fecha','ini','fin','lugar','nota','creadoPor','creado'];
+const CAMPOS=['tipo','fecha','ini','fin','lugar','nota','creadoPor','creado','monto','cobrada','cambio','colega'];
 async function huella(e){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode([e.tipo,e.fecha,e.ini,e.fin,e.lugar,e.nota].join('|')));
   return 'r-'+[...new Uint8Array(buf)].slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('');

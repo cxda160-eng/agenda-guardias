@@ -120,6 +120,28 @@ textarea{resize:vertical;min-height:54px}
 .dias label{display:inline-flex;align-items:center;gap:4px;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;cursor:pointer}
 .dias input{width:auto;margin:0}
 #rep-prev{margin:0}
+.check{display:flex;flex-direction:row;align-items:center;gap:8px;align-self:end;padding-bottom:9px;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
+.check input{width:auto;margin:0}
+.cobro{gap:12px}
+.cobro-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cobro-tot{display:flex;flex-wrap:wrap;gap:8px 28px}
+.cobro-tot div{display:flex;flex-direction:column}
+.cobro-tot b{font-family:var(--f-mono);font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
+.cobro-tot span{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cobro-tot .pend b{color:var(--t-g12)}
+.tabla-wrap{overflow-x:auto}
+.tabla{width:100%;border-collapse:collapse;font-size:14px}
+.tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:400;text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
+.tabla td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tabla td.n,.tabla th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tabla button{font-size:12px;padding:3px 8px;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);margin-left:4px;vertical-align:1px}
+.tag.ok{color:var(--t-con);border-color:var(--t-con)}
+.tag.pend{color:var(--t-g12);border-color:var(--t-g12)}
+.tag.ced{color:var(--muted)}
+.item.cedida .t{text-decoration:line-through;color:var(--muted)}
+.chip.cedida{opacity:.45;text-decoration:line-through}
+
 #respaldo summary{cursor:pointer;list-style-position:inside}
 #respaldo[open]{gap:10px}
 .cal-sync .linkbox{display:flex;gap:8px;flex-wrap:wrap}
@@ -185,6 +207,16 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
     <div class="stat"><b id="s-prox" style="font-size:15px">–</b><span>Próxima guardia</span></div>
   </section>
 
+  <section class="card cobro" id="cobro" hidden aria-labelledby="cobro-titulo">
+    <div class="cobro-head">
+      <h3 id="cobro-titulo">Cobro de guardias</h3>
+      <span class="mini" id="cobro-mes"></span>
+    </div>
+    <div class="cobro-tot" id="cobro-tot"></div>
+    <div class="tabla-wrap"><table class="tabla" id="cobro-tabla"></table></div>
+    <p class="note" style="margin:0">Montos brutos que cargaste en cada guardia. Las guardias que cediste no se suman.</p>
+  </section>
+
   <div class="main">
     <section class="cal" aria-label="Calendario">
       <div class="calbar">
@@ -241,7 +273,21 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
             </fieldset>
             <p class="note" id="rep-prev" hidden></p>
           </div>
-          <label for="f-nota">Nota<textarea id="f-nota" maxlength="300" placeholder="Cambio con un colega, a quién llamar, etc."></textarea></label>
+          <div class="row">
+            <label for="f-monto">Monto bruto ($)<input id="f-monto" type="number" inputmode="numeric" min="0" step="1" placeholder="Opcional"></label>
+            <label class="check" for="f-cobrada"><input id="f-cobrada" type="checkbox">Ya la cobré</label>
+          </div>
+          <div class="row">
+            <label for="f-cambio">Cambio con un colega
+              <select id="f-cambio">
+                <option value="">Sin cambio</option>
+                <option value="cedida">La cedí a un colega</option>
+                <option value="tomada">Cubrí a un colega</option>
+              </select>
+            </label>
+            <label for="f-colega" id="colega-label" hidden>Colega<input id="f-colega" type="text" maxlength="40" placeholder="Nombre"></label>
+          </div>
+          <label for="f-nota">Nota<textarea id="f-nota" maxlength="300" placeholder="A quién llamar, detalles, etc."></textarea></label>
           <div class="actions">
             <button class="primary" id="f-guardar" type="submit">Guardar</button>
             <button id="f-cancelar" type="button" hidden>Cancelar</button>
@@ -271,6 +317,6 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
 </div>
 <div id="toast" hidden></div>
 
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
