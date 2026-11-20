@@ -101,6 +101,8 @@ textarea{resize:vertical;min-height:54px}
 .login .card{padding:22px}
 .login h1{font-size:30px}
 .err-msg{color:var(--danger);font-size:14px;margin:0}
+#respaldo summary{cursor:pointer;list-style-position:inside}
+#respaldo[open]{gap:10px}
 .cal-sync .linkbox{display:flex;gap:8px;flex-wrap:wrap}
 .cal-sync .linkbox input{flex:1 1 220px;font-family:var(--f-mono);font-size:12px}
 .cal-sync h4{font-family:var(--f-display);font-weight:500;font-size:16px;margin:4px 0 0}
@@ -224,6 +226,14 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
         <h3>Próximos turnos</h3>
         <div class="list" id="prox-lista"><p class="empty">Cargando agenda…</p></div>
       </div>
+
+      <details class="card" id="respaldo">
+        <summary><h3 style="display:inline">Respaldo de datos</h3></summary>
+        <p class="note" style="margin:0">Guardá una copia de todos los turnos, o importá una copia que ya tengas. Importar dos veces la misma copia no duplica los turnos.</p>
+        <div class="actions"><button id="resp-copiar" type="button">Copiar respaldo</button></div>
+        <label for="resp-texto">Pegar un respaldo para importar<textarea id="resp-texto" rows="4" placeholder="Pegá acá el respaldo"></textarea></label>
+        <div class="actions"><button class="primary" id="resp-importar" type="button">Importar turnos</button></div>
+      </details>
     </aside>
   </div>
 </div>

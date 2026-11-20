@@ -218,6 +218,36 @@ $('cal-descargar').onclick=()=>{
   toast(lista.length+' turnos listos para importar');
 };
 
+// Respaldo: exportar e importar todos los turnos
+const CAMPOS=['tipo','fecha','ini','fin','lugar','nota','creadoPor','creado'];
+async function huella(e){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode([e.tipo,e.fecha,e.ini,e.fin,e.lugar,e.nota].join('|')));
+  return 'r-'+[...new Uint8Array(buf)].slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+$('resp-copiar').onclick=()=>{
+  const datos=JSON.stringify({agenda:'guardias',version:2,turnos:eventos.map(e=>CAMPOS.map(k=>e[k]??''))});
+  const ta=$('resp-texto');
+  const fallback=()=>{ta.value=datos;ta.focus();ta.select();toast('Respaldo listo en el cuadro: copialo con Ctrl+C')};
+  if(navigator.clipboard)navigator.clipboard.writeText(datos).then(()=>toast(eventos.length+' turnos copiados. Pegalos en un lugar seguro.')).catch(fallback);else fallback();
+};
+$('resp-importar').onclick=async()=>{
+  let filas;
+  try{const j=JSON.parse($('resp-texto').value.trim());filas=Array.isArray(j)?j:j.turnos}catch(_){toast('Ese texto no es un respaldo válido.');return}
+  if(!Array.isArray(filas)||!filas.length){toast('El respaldo no tiene turnos.');return}
+  const lista=filas.map(f=>Array.isArray(f)?Object.fromEntries(CAMPOS.map((k,i)=>[k,f[i]])):f)
+    .filter(e=>e&&TIPOS[e.tipo]&&/^\d{4}-\d{2}-\d{2}$/.test(e.fecha||''));
+  if(!lista.length){toast('El respaldo no tiene turnos válidos.');return}
+  const b=$('resp-importar');b.disabled=true;
+  try{
+    for(let i=0;i<lista.length;i+=400){
+      const batch=writeBatch(db);
+      for(const e of lista.slice(i,i+400)){const n=permitido({...e,ini:e.ini||'',fin:e.fin||''});batch.set(doc(turnosCol,await huella(n)),n)}
+      await batch.commit();
+    }
+    $('resp-texto').value='';toast(lista.length+' turnos importados');
+  }catch(err){errGuardar(err)}finally{b.disabled=false}
+};
+
 // Pasar los turnos de la versión anterior (solo funciona abriendo la dirección vieja de Netlify)
 async function revisarMigracion(){
   try{
