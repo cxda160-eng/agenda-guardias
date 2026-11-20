@@ -1,0 +1,40 @@
+rules_version = '2';
+// Reglas de la Agenda de Guardias.
+// Cada agenda vive en agendas/<clave de 64 caracteres derivada del PIN>.
+// Sin el PIN no se puede adivinar la ruta, y no se puede listar la colección "agendas".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function claveValida(agenda) {
+      return agenda.size() == 64 && agenda.matches('^[0-9a-f]+$');
+    }
+
+    function horaValida(h) {
+      return h is string && (h == '' || h.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'));
+    }
+
+    function turnoValido(d) {
+      return d.keys().hasOnly(['tipo', 'fecha', 'ini', 'fin', 'lugar', 'nota', 'creadoPor', 'creado', 'editado'])
+        && d.keys().hasAll(['tipo', 'fecha'])
+        && d.tipo in ['g24', 'g12', 'noc', 'fel', 'con', 'plan', 'otro']
+        && d.fecha is string && d.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && horaValida(d.get('ini', '')) && horaValida(d.get('fin', ''))
+        && d.get('lugar', '') is string && d.get('lugar', '').size() <= 80
+        && d.get('nota', '') is string && d.get('nota', '').size() <= 300
+        && d.get('creadoPor', '') is string && d.get('creadoPor', '').size() <= 40;
+    }
+
+    match /agendas/{agenda}/meta/info {
+      allow get: if claveValida(agenda);
+      allow create: if claveValida(agenda) && request.resource.data.keys().hasOnly(['creada', 'version']);
+    }
+
+    match /agendas/{agenda}/turnos/{turno} {
+      allow read: if claveValida(agenda);
+      allow create, update: if claveValida(agenda)
+        && exists(/databases/$(database)/documents/agendas/$(agenda)/meta/info)
+        && turnoValido(request.resource.data);
+      allow delete: if claveValida(agenda);
+    }
+  }
+}

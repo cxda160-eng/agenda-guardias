@@ -1,62 +1,39 @@
 # Agenda de Guardias
 
 App web instalable (PWA) para compartir guardias, fellowship, consultorio y planes entre dos personas.
-Los datos se guardan en tu propio sitio de Netlify (Netlify Blobs) y se protegen con un PIN que solo conocen ustedes dos.
+La app se publica con **GitHub Pages** (carpeta `docs/`) y los turnos se guardan en **Firebase Firestore**, protegidos por un PIN compartido.
 
-## Qué hay en la carpeta
+## Estructura
 
 ```
-public/                     la app (lo que se ve)
-  index.html
-  manifest.webmanifest      datos para instalarla en el celular
-  sw.js                     permite abrirla sin señal
-  icons/
-netlify/functions/turnos.mjs   el servidor que guarda los turnos
-netlify.toml                configuración de Netlify
-package.json                dependencia @netlify/blobs
+docs/                    la app que publica GitHub Pages
+  index.html, app.js
+  firebase-config.js     datos del proyecto de Firebase (no son secretos)
+  manifest.webmanifest, sw.js, icons/
+firestore.rules          reglas de seguridad para pegar en Firebase
+netlify/, netlify.toml   versión anterior en Netlify (solo para pasar los turnos viejos)
 ```
 
-## Importante antes de publicar
+## Cómo funciona el PIN
 
-El arrastre de carpeta de **Netlify Drop no sirve para esta app**: Drop solo publica archivos estáticos y no instala el servidor (la función). Usá una de estas dos opciones.
+Cada agenda se guarda en Firestore bajo una clave de 64 caracteres calculada a partir del PIN.
+Sin el PIN no se puede llegar a los datos, y las reglas impiden listar las agendas.
+La primera vez, al ingresar el PIN la app ofrece **Crear agenda nueva con este PIN**.
+Si cambian el PIN, se crea una agenda nueva y vacía: el PIN no se puede cambiar sin pasar los turnos.
 
-### Opción A — Con GitHub (recomendada)
+## Puesta en marcha
 
-1. Creá un repositorio nuevo en GitHub (puede ser privado) y subí todo el contenido de esta carpeta.
-2. En Netlify: **Add new site → Import an existing project → GitHub** y elegí el repositorio.
-   Netlify lee `netlify.toml` solo; no hace falta cambiar nada en la configuración de build.
-3. Antes o después del primer deploy, andá a **Site configuration → Environment variables → Add a variable**:
-   - Key: `AGENDA_PIN`
-   - Value: el PIN que van a usar los dos (por ejemplo, 6 dígitos o una palabra; mejor si no es obvio).
-4. Andá a **Deploys → Trigger deploy → Deploy site** para que tome el PIN.
+1. Crear un proyecto en Firebase y una base Firestore (modo producción).
+2. Pegar el contenido de `firestore.rules` en **Firestore → Reglas** y publicar.
+3. Registrar una app web y copiar su configuración en `docs/firebase-config.js`.
+4. En GitHub: **Settings → Pages → Deploy from a branch → main / docs**.
 
-### Opción B — Con Netlify CLI (desde la compu)
+## Calendario del celular
 
-```bash
-npm install
-npm install -g netlify-cli
-netlify login
-netlify init            # crea el sitio
-netlify env:set AGENDA_PIN "tu-pin"
-netlify deploy --prod
-```
+El botón **📲 Pasar al calendario** descarga un archivo `.ics` con los turnos desde la fecha elegida, para importar en iPhone o Google Calendar.
+No se actualiza solo: GitHub Pages no tiene servidor para un enlace de suscripción.
 
-## Uso
+## Pasar los turnos desde Netlify
 
-1. Abrí la dirección del sitio (algo como `https://tu-agenda.netlify.app`).
-2. Ingresá tu nombre y el PIN. Pasale la dirección y el PIN a la otra persona.
-3. Para instalarla como app:
-   - **Android (Chrome):** menú ⋮ → *Instalar app* o *Agregar a pantalla principal*.
-   - **iPhone (Safari):** botón Compartir → *Agregar a inicio*.
-
-La agenda se actualiza sola cada 2 minutos mientras está abierta y cada vez que volvés a abrirla (si pasaron más de 30 segundos). Sin señal muestra lo último que se cargó, pero para guardar cambios hace falta conexión.
-
-## Ver las guardias en el calendario del celular
-
-En la app, tocá **📲 Calendario del celular**. Ahí está el enlace de suscripción y las instrucciones para iPhone/iPad y para Google Calendar.
-Las guardias traen aviso la noche anterior y 1 hora antes (en iPhone hay que desactivar *Eliminar alertas* para ese calendario).
-El enlace depende del PIN: si cambiás el PIN, hay que volver a suscribirse.
-
-## Cambiar el PIN
-
-Cambiá `AGENDA_PIN` en Netlify y volvé a desplegar. Los dos van a tener que ingresar el PIN nuevo; los turnos no se pierden.
+Mientras el sitio de Netlify siga activo, abrirlo e ingresar con el mismo PIN muestra **Pasarlos a la nueva base**.
+Después de pasarlos, el sitio de Netlify se puede borrar.
