@@ -140,6 +140,10 @@ textarea{resize:vertical;min-height:54px}
 .tag.pend{color:var(--t-g12);border-color:var(--t-g12)}
 .tag.ced{color:var(--muted)}
 .item.cedida .t{text-decoration:line-through;color:var(--muted)}
+.chip-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:1px}
+.valores summary{cursor:pointer;font-weight:700}
+.valores input{width:9em;padding:4px 6px;font-size:14px;text-align:right;font-family:var(--f-mono)}
+#cobro-resumen{padding:0;border:0}
 .chip.cedida{opacity:.45;text-decoration:line-through}
 
 #respaldo summary{cursor:pointer;list-style-position:inside}
@@ -212,9 +216,16 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
       <h3 id="cobro-titulo">Cobro de guardias</h3>
       <span class="mini" id="cobro-mes"></span>
     </div>
-    <div class="cobro-tot" id="cobro-tot"></div>
-    <div class="tabla-wrap"><table class="tabla" id="cobro-tabla"></table></div>
-    <p class="note" style="margin:0">Montos brutos que cargaste en cada guardia. Las guardias que cediste no se suman.</p>
+    <div id="cobro-resumen" class="cobro">
+      <div class="cobro-tot" id="cobro-tot"></div>
+      <div class="tabla-wrap"><table class="tabla" id="cobro-tabla"></table></div>
+      <p class="note" style="margin:0">Montos brutos que cargaste en cada guardia. Las guardias que cediste no se suman.</p>
+    </div>
+    <details class="valores" id="valores">
+      <summary>Valor de cada guardia</summary>
+      <p class="note" style="margin:6px 0">Poné el valor bruto una vez por tipo y lugar, y tocá <b>Aplicar</b>: se copia a todas las guardias de ese grupo que todavía no cobraste, y a las que cargues después. Dejalo vacío para las que no se cobran, como las pasivas.</p>
+      <div class="tabla-wrap"><table class="tabla" id="valores-tabla"></table></div>
+    </details>
   </section>
 
   <div class="main">
@@ -317,6 +328,6 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
 </div>
 <div id="toast" hidden></div>
 
-<script type="module" src="app.js?v=14"></script>
+<script type="module" src="app.js?v=15"></script>
 </body>
 </html>

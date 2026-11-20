@@ -108,10 +108,53 @@ function renderStats(){
   const p=eventos.filter(e=>TIPOS[e.tipo]?.guardia&&!cedida(e)&&(e.fecha+' '+(e.ini||'00:00'))>=ahora).sort((a,b)=>(a.fecha+a.ini).localeCompare(b.fecha+b.ini))[0];
   $('s-prox').textContent=p?fechaCorta(p.fecha)+(p.ini?' · '+p.ini:''):'Sin guardias cargadas';
 }
+// Valor de cada guardia, por tipo y lugar
+const COBRABLES=['g24','g12','noc','con'];
+function gruposValor(){
+  const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
+  const m=new Map();
+  for(const e of eventos){
+    if(!COBRABLES.includes(e.tipo)||cedida(e))continue;
+    const k=grupoMonto(e);
+    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,valor:0,t:0};
+    g.n++; const tt=e.editado||e.creado||0; if(e.monto>0&&tt>=g.t){g.valor=e.monto;g.t=tt}
+    m.set(k,g);
+  }
+  return [...m.values()].sort((a,b)=>b.n-a.n);
+}
+let firmaValores='';
+function renderValores(){
+  const gs=gruposValor();
+  const firma=JSON.stringify(gs.map(g=>[g.k,g.n,g.valor]));
+  if(firma===firmaValores)return; firmaValores=firma;
+  const tb=$('valores-tabla');
+  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Cargadas</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.n}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.valor||''}" placeholder="sin cobro" aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
+  tb.dataset.json=JSON.stringify(gs);
+  if(!gs.some(g=>g.valor>0))$('valores').open=true;
+}
+$('valores-tabla').addEventListener('click',async ev=>{
+  const b=ev.target.closest('button[data-valor]');if(!b)return;
+  const g=JSON.parse($('valores-tabla').dataset.json||'[]')[Number(b.dataset.valor)];if(!g)return;
+  const v=Math.round(Number($('valor-'+b.dataset.valor).value)||0);
+  const objetivo=eventos.filter(e=>grupoMonto(e)===g.k&&!cedida(e)&&!e.cobrada&&(v>0?e.monto!==v:e.monto>0));
+  if(!objetivo.length){toast('Ese grupo ya tiene ese valor.');return}
+  b.disabled=true;
+  try{
+    for(let i=0;i<objetivo.length;i+=400){
+      const batch=writeBatch(db);
+      for(const e of objetivo.slice(i,i+400))batch.set(doc(turnosCol,e.id),permitido({...e,monto:v,editado:Date.now()}));
+      await batch.commit();
+    }
+    firmaValores='';
+    toast(v>0?`${fmt$(v)} aplicado a ${objetivo.length} guardias (${CORTO[g.tipo]} · ${g.nombre})`:`${CORTO[g.tipo]} · ${g.nombre}: sin cobro (${objetivo.length} guardias)`);
+  }catch(err){errGuardar(err)}finally{b.disabled=false}
+});
 function renderCobro(){
   const y=vista.getFullYear(),m=vista.getMonth();
   const lista=eventos.filter(e=>{const d=parse(e.fecha);return d.getFullYear()===y&&d.getMonth()===m&&e.monto>0&&!cedida(e)});
-  $('cobro').hidden=!lista.length; if(!lista.length)return;
+  renderValores();
+  $('cobro').hidden=!$('valores-tabla').rows.length&&!lista.length;
+  $('cobro-resumen').hidden=!lista.length; if(!lista.length){$('cobro-mes').textContent='';return}
   $('cobro-mes').textContent=MESES[m]+' '+y;
   const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
   const grupos=new Map();
