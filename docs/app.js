@@ -105,12 +105,11 @@ function render(){renderCal();renderDia();renderProx();renderStats()}
 // Sincronización en vivo
 function escuchar(){
   if(desuscribir)desuscribir();
-  let primeraDelServidor=true;
   desuscribir=onSnapshot(turnosCol,{includeMetadataChanges:true},snap=>{
     eventos=snap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.fecha);
     if(snap.metadata.hasPendingWrites)setSync('Guardando…');
     else if(snap.metadata.fromCache)setSync(navigator.onLine?'Conectando…':'Sin conexión · los cambios se guardan al volver la señal',!navigator.onLine);
-    else{const t=new Date();setSync('Sincronizado '+pad(t.getHours())+':'+pad(t.getMinutes()));if(primeraDelServidor){primeraDelServidor=false;revisarMigracion()}}
+    else{const t=new Date();setSync('Sincronizado '+pad(t.getHours())+':'+pad(t.getMinutes()));}
     render();
   },err=>{setSync('No se pudo conectar con la agenda',true);console.error(err)});
 }
@@ -247,29 +246,6 @@ $('resp-importar').onclick=async()=>{
     $('resp-texto').value='';toast(lista.length+' turnos importados');
   }catch(err){errGuardar(err)}finally{b.disabled=false}
 };
-
-// Pasar los turnos de la versión anterior (solo funciona abriendo la dirección vieja de Netlify)
-async function revisarMigracion(){
-  try{
-    const res=await fetch('api/turnos',{headers:{'x-agenda-pin':sesion.pin},cache:'no-store'});
-    if(!res.ok||!(res.headers.get('content-type')||'').includes('json'))return;
-    const viejos=(await res.json()).filter(e=>e&&e.id&&e.fecha&&TIPOS[e.tipo]);
-    const faltan=viejos.filter(v=>!eventos.some(e=>e.id===v.id));
-    if(!faltan.length)return;
-    $('mig-n').textContent=faltan.length;$('migrar').hidden=false;
-    $('mig-btn').onclick=async()=>{
-      const b=$('mig-btn');b.disabled=true;
-      try{
-        for(let i=0;i<faltan.length;i+=400){
-          const batch=writeBatch(db);
-          for(const v of faltan.slice(i,i+400))batch.set(doc(turnosCol,v.id),permitido(v));
-          await batch.commit();
-        }
-        $('migrar').hidden=true;toast(faltan.length+' turnos pasados a la nueva base');
-      }catch(err){errGuardar(err)}finally{b.disabled=false}
-    };
-  }catch(_){}
-}
 
 // Sesión
 function mostrarApp(){$('login').hidden=true;$('app').hidden=false;$('l-nueva').hidden=true;resetForm();render();setSync('Conectando…');escuchar()}

@@ -11,7 +11,6 @@ docs/                    la app que publica GitHub Pages
   firebase-config.js     datos del proyecto de Firebase (no son secretos)
   manifest.webmanifest, sw.js, icons/
 firestore.rules          reglas de seguridad para pegar en Firebase
-netlify/, netlify.toml   versión anterior en Netlify (solo para pasar los turnos viejos)
 ```
 
 ## Cómo funciona el PIN
@@ -33,7 +32,6 @@ Si cambian el PIN, se crea una agenda nueva y vacía: el PIN no se puede cambiar
 El botón **📲 Pasar al calendario** descarga un archivo `.ics` con los turnos desde la fecha elegida, para importar en iPhone o Google Calendar.
 No se actualiza solo: GitHub Pages no tiene servidor para un enlace de suscripción.
 
-## Pasar los turnos desde Netlify
+## Respaldo
 
-Mientras el sitio de Netlify siga activo, abrirlo e ingresar con el mismo PIN muestra **Pasarlos a la nueva base**.
-Después de pasarlos, el sitio de Netlify se puede borrar.
+En la app, **Respaldo de datos** copia todos los turnos o importa una copia. Importar dos veces la misma copia no duplica turnos.
