@@ -110,35 +110,41 @@ function renderStats(){
 }
 // Valor de cada guardia, por tipo y lugar
 const COBRABLES=['g24','g12','noc','con'];
+const mesDe=f=>String(f||'').slice(0,7);
+const mesVista=()=>vista.getFullYear()+'-'+pad(vista.getMonth()+1);
 function gruposValor(){
   const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
   const m=new Map();
   for(const e of eventos){
     if(!COBRABLES.includes(e.tipo)||cedida(e))continue;
     const k=grupoMonto(e);
-    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,nMes:0,valor:0,t:0,fijo:0};
+    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,nMes:0,valor:0,t:0,fijo:0,valorMes:0,tMes:0,fijoMes:0};
     g.n++; if(e.pago==='fijo')g.fijo++;
-    const d=parse(e.fecha); if(d.getFullYear()===vista.getFullYear()&&d.getMonth()===vista.getMonth())g.nMes++;
     const tt=e.editado||e.creado||0; if(e.monto>0&&tt>=g.t){g.valor=e.monto;g.t=tt}
+    if(mesDe(e.fecha)===mesVista()){g.nMes++; if(e.pago==='fijo')g.fijoMes++; if(e.monto>0&&tt>=g.tMes){g.valorMes=e.monto;g.tMes=tt}}
     m.set(k,g);
   }
-  return [...m.values()].map(g=>({...g,modo:g.fijo*2>=g.n&&g.fijo?'fijo':g.valor>0?'guardia':'sin'})).sort((a,b)=>b.n-a.n);
+  return [...m.values()].map(g=>({...g,
+    modo:g.fijo*2>=g.n&&g.fijo?'fijo':g.valor>0?'guardia':'sin',
+    modoMes:g.nMes?(g.fijoMes*2>=g.nMes&&g.fijoMes?'fijo':g.valorMes>0?'guardia':(g.fijo*2>=g.n&&g.fijo?'fijo':g.valor>0?'guardia':'sin')):'sin'
+  })).sort((a,b)=>b.nMes-a.nMes||b.n-a.n);
 }
 // Modo de cobro de un grupo, para que las guardias nuevas lo hereden
 const modoGrupo=k=>(gruposValor().find(g=>g.k===k)||{}).modo||'sin';
 let firmaValores='';
 function renderValores(){
-  const gs=gruposValor();
-  const firma=JSON.stringify([vista.getMonth(),gs.map(g=>[g.k,g.n,g.nMes,g.valor,g.modo])]);
+  const gs=gruposValor().filter(g=>g.nMes>0);
+  const firma=JSON.stringify([mesVista(),gs.map(g=>[g.k,g.nMes,g.valorMes,g.modoMes,g.valor])]);
   if(firma===firmaValores)return; firmaValores=firma;
+  $('valores-mes').textContent=MESES[vista.getMonth()]+' '+vista.getFullYear();
   const tb=$('valores-tabla');
   const opc=(i,g)=>`<select id="modo-${i}" aria-label="Cómo se cobra ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}">
-      <option value="guardia"${g.modo==='guardia'?' selected':''}>Por guardia</option>
-      <option value="fijo"${g.modo==='fijo'?' selected':''}>Sueldo fijo</option>
-      <option value="sin"${g.modo==='sin'?' selected':''}>Sin cobro</option></select>`;
-  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Guardias</th><th>Cobro</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.nMes} en ${MESES[vista.getMonth()].slice(0,3)} · ${g.n} en total</td><td>${opc(i,g)}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.modo==='guardia'&&g.valor?g.valor:''}" placeholder="—"${g.modo==='guardia'?'':' disabled'} aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
+      <option value="guardia"${g.modoMes==='guardia'?' selected':''}>Por guardia</option>
+      <option value="fijo"${g.modoMes==='fijo'?' selected':''}>Sueldo fijo</option>
+      <option value="sin"${g.modoMes==='sin'?' selected':''}>Sin cobro</option></select>`;
+  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">En el mes</th><th>Cobro</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.nMes} ${g.nMes===1?'guardia':'guardias'}</td><td>${opc(i,g)}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.modoMes==='guardia'&&g.valorMes?g.valorMes:''}" placeholder="${g.valor?'último: '+fmt$(g.valor):'—'}"${g.modoMes==='guardia'?'':' disabled'} aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`
+    :'<tbody><tr><td class="empty">No hay guardias cargadas en este mes.</td></tr></tbody>';
   tb.dataset.json=JSON.stringify(gs);
-  if(!gs.some(g=>g.modo!=='sin'))$('valores').open=true;
 }
 $('valores-tabla').addEventListener('change',ev=>{
   const s=ev.target.closest('select[id^="modo-"]');if(!s)return;
@@ -153,7 +159,7 @@ $('valores-tabla').addEventListener('click',async ev=>{
   const v=modo==='guardia'?Math.round(Number($('valor-'+i).value)||0):0;
   if(modo==='guardia'&&!v){toast('Escribí el valor bruto de esa guardia.');$('valor-'+i).focus();return}
   const pago=modo==='fijo'?'fijo':'';
-  const objetivo=eventos.filter(e=>grupoMonto(e)===g.k&&!cedida(e)&&!e.cobrada&&((e.monto||0)!==v||(e.pago||'')!==pago));
+  const objetivo=eventos.filter(e=>grupoMonto(e)===g.k&&mesDe(e.fecha)===mesVista()&&!cedida(e)&&!e.cobrada&&((e.monto||0)!==v||(e.pago||'')!==pago));
   if(!objetivo.length){toast('Ese grupo ya está así.');return}
   b.disabled=true;
   try{
@@ -164,14 +170,14 @@ $('valores-tabla').addEventListener('click',async ev=>{
     }
     firmaValores='';
     const que=modo==='guardia'?fmt$(v)+' por guardia':modo==='fijo'?'sueldo fijo':'sin cobro';
-    toast(`${CORTO[g.tipo]} · ${g.nombre}: ${que} (${objetivo.length} guardias)`);
+    toast(`${CORTO[g.tipo]} · ${g.nombre}, ${MESES[vista.getMonth()]}: ${que} (${objetivo.length} guardias)`);
   }catch(err){errGuardar(err)}finally{b.disabled=false}
 });
 function renderCobro(){
   const y=vista.getFullYear(),m=vista.getMonth();
   const lista=eventos.filter(e=>{const d=parse(e.fecha);return d.getFullYear()===y&&d.getMonth()===m&&e.monto>0&&!cedida(e)});
   renderValores();
-  $('cobro').hidden=!$('valores-tabla').rows.length&&!lista.length;
+  $('cobro').hidden=!JSON.parse($('valores-tabla').dataset.json||'[]').length&&!lista.length;
   $('cobro-resumen').hidden=!lista.length; if(!lista.length){$('cobro-mes').textContent='';return}
   $('cobro-mes').textContent=MESES[m]+' '+y;
   const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
@@ -359,13 +365,13 @@ const grupoMonto=e=>e.tipo+'|'+(clave(e.lugar)||'nota:'+clave(e.nota));
 function copiarMonto(base,idActual){
   const m=Math.round(Number(base.monto)); if(!(m>0))return;
   const g=grupoMonto(base);
-  const otros=eventos.filter(e=>e.id!==idActual&&grupoMonto(e)===g&&!(e.monto>0)&&!cedida(e));
+  const otros=eventos.filter(e=>e.id!==idActual&&grupoMonto(e)===g&&mesDe(e.fecha)===mesDe(base.fecha)&&!(e.monto>0)&&!cedida(e)&&e.pago!=='fijo');
   if(!otros.length)return;
   const batch=writeBatch(db);
   for(const e of otros)batch.set(doc(turnosCol,e.id),permitido({...e,monto:m,editado:Date.now()}));
   batch.commit().catch(errGuardar);
   const donde=base.lugar||base.nota||'sin lugar';
-  setTimeout(()=>toast(`${fmt$(m)} aplicado también a ${otros.length} ${otros.length===1?'guardia':'guardias'} (${CORTO[base.tipo]} · ${donde})`),1200);
+  setTimeout(()=>toast(`${fmt$(m)} aplicado también a ${otros.length} ${otros.length===1?'guardia':'guardias'} de ${MESES[parse(base.fecha).getMonth()]} (${CORTO[base.tipo]} · ${donde})`),1200);
 }
 
 // Borrar desde la lista: primer toque pide confirmar, segundo borra, y se puede deshacer

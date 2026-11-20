@@ -252,8 +252,8 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
       <p class="note" style="margin:0">Montos brutos que cargaste en cada guardia. Las guardias que cediste no se suman.</p>
     </div>
     <details class="valores" id="valores">
-      <summary>Valor de cada guardia</summary>
-      <p class="note" style="margin:6px 0">Elegí cómo se cobra cada tipo y lugar: <b>Por guardia</b> (con su valor bruto), <b>Sueldo fijo</b> o <b>Sin cobro</b>, como las pasivas. Tocá <b>Aplicar</b> y se copia a todas las guardias de ese grupo que todavía no cobraste, y a las que cargues después.</p>
+      <summary>Valor de cada guardia · <span id="valores-mes"></span></summary>
+      <p class="note" style="margin:6px 0">Se carga por mes. Elegí cómo se cobra cada tipo y lugar en este mes: <b>Por guardia</b> (con su valor bruto), <b>Sueldo fijo</b> o <b>Sin cobro</b>, como las pasivas. <b>Aplicar</b> lo pone en las guardias de este mes que todavía no cobraste. Para otro mes, cambiá de mes con las flechas del calendario.</p>
       <div class="tabla-wrap"><table class="tabla" id="valores-tabla"></table></div>
     </details>
   </section>
@@ -358,6 +358,6 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
 </div>
 <div id="toast" hidden></div>
 
-<script type="module" src="app.js?v=19"></script>
+<script type="module" src="app.js?v=20"></script>
 </body>
 </html>
