@@ -288,8 +288,22 @@ $('f').addEventListener('submit',ev=>{
     batch.commit().catch(errGuardar);
     toast(fechas.length>1?fechas.length+' turnos agregados':'Turno agregado');
   }
+  copiarMonto(base,editId);
   sel=fecha;resetForm();render();
 });
+// Al poner un monto, se copia a las demás guardias del mismo tipo y lugar que todavía no tienen monto
+const grupoMonto=e=>e.tipo+'|'+(clave(e.lugar)||'nota:'+clave(e.nota));
+function copiarMonto(base,idActual){
+  const m=Math.round(Number(base.monto)); if(!(m>0))return;
+  const g=grupoMonto(base);
+  const otros=eventos.filter(e=>e.id!==idActual&&grupoMonto(e)===g&&!(e.monto>0)&&!cedida(e));
+  if(!otros.length)return;
+  const batch=writeBatch(db);
+  for(const e of otros)batch.set(doc(turnosCol,e.id),permitido({...e,monto:m,editado:Date.now()}));
+  batch.commit().catch(errGuardar);
+  const donde=base.lugar||base.nota||'sin lugar';
+  setTimeout(()=>toast(`${fmt$(m)} aplicado también a ${otros.length} ${otros.length===1?'guardia':'guardias'} (${CORTO[base.tipo]} · ${donde})`),1200);
+}
 
 // Borrar desde la lista: primer toque pide confirmar, segundo borra, y se puede deshacer
 function borrarTurno(b){
