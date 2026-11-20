@@ -1,8 +1,8 @@
 // Service worker: guarda la app para abrirla sin conexión.
 // Los datos los maneja Firebase, que también guarda una copia sin conexión.
-const CACHE = "agenda-guardias-v6";
+const CACHE = "agenda-guardias-v7";
 const BASE = self.registration.scope;
-const SHELL = ["", "index.html", "app.js", "firebase-config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"].map((p) => BASE + p);
+const SHELL = ["", "index.html", "app.js?v=7", "firebase-config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"].map((p) => BASE + p);
 const FIREBASE_SDK = /^https:\/\/www\.gstatic\.com\/firebasejs\//;
 
 self.addEventListener("install", (e) => {
@@ -24,7 +24,7 @@ self.addEventListener("fetch", (e) => {
   if (!propia && !sdk) return;
   // Red primero; si no hay señal, lo guardado
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })
       .then((res) => {
         if (res.ok) { const copia = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); }
         return res;
