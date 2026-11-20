@@ -51,7 +51,11 @@ const hoy=new Date(); let vista=new Date(hoy.getFullYear(),hoy.getMonth(),1); le
 $('f-tipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
 $('legend').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<span style="--c:${color(k)}">${v.label}</span>`).join('');
 
-function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2800)}
+function toast(msg,accion,fn){
+  const t=$('toast');t.textContent=msg;
+  if(accion){const b=document.createElement('button');b.type='button';b.textContent=accion;b.onclick=()=>{t.hidden=true;fn()};t.append(b)}
+  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,accion?6000:2800);
+}
 function setSync(txt,err){const s=$('sync');s.textContent=txt;s.classList.toggle('err',!!err)}
 const porDia=s=>eventos.filter(e=>e.fecha===s).sort((a,b)=>(a.ini||'').localeCompare(b.ini||''));
 
@@ -76,7 +80,8 @@ function itemHTML(e,conFecha){
   return `<div class="item" style="--c:${color(e.tipo)}" data-id="${esc(e.id)}" tabindex="0" role="button">
     <i></i><div><div class="t">${esc((TIPOS[e.tipo]||TIPOS.otro).label)}</div>
     <div class="m mono">${conFecha?fechaCorta(e.fecha)+' · ':''}${rango(e)}${horas(e)?' · '+horas(e)+' h':''}</div>
-    ${e.lugar||e.nota||quien?`<div class="m">${esc(e.lugar)}${e.lugar&&e.nota?' — ':''}${esc(e.nota)}${quien}</div>`:''}</div></div>`;
+    ${e.lugar||e.nota||quien?`<div class="m">${esc(e.lugar)}${e.lugar&&e.nota?' — ':''}${esc(e.nota)}${quien}</div>`:''}</div>
+    <button type="button" class="item-del" data-del="${esc(e.id)}" aria-label="Borrar ${esc((TIPOS[e.tipo]||TIPOS.otro).label)} del ${fechaLarga(e.fecha)}">Borrar</button></div>`;
 }
 function renderDia(){
   $('dia-titulo').textContent=sel===iso(hoy)?'Hoy, '+fechaLarga(sel):fechaLarga(sel);
@@ -235,6 +240,23 @@ $('f').addEventListener('submit',ev=>{
   sel=fecha;resetForm();render();
 });
 
+// Borrar desde la lista: primer toque pide confirmar, segundo borra, y se puede deshacer
+function borrarTurno(b){
+  const ev=eventos.find(x=>x.id===b.dataset.del);if(!ev)return;
+  if(!b.classList.contains('confirmar')){
+    document.querySelectorAll('.item-del.confirmar').forEach(o=>{o.classList.remove('confirmar');o.textContent='Borrar'});
+    b.classList.add('confirmar');b.textContent='¿Borrar?';
+    clearTimeout(borrarTurno._t);borrarTurno._t=setTimeout(()=>{b.classList.remove('confirmar');b.textContent='Borrar'},4000);
+    return;
+  }
+  const copia={...ev};delete copia.id;
+  deleteDoc(doc(turnosCol,ev.id)).catch(errGuardar);
+  if(editId===ev.id)resetForm();
+  toast((TIPOS[ev.tipo]||TIPOS.otro).label+' del '+fechaCorta(ev.fecha)+' borrada','Deshacer',()=>{
+    setDoc(doc(turnosCol,ev.id),permitido(copia)).catch(errGuardar);toast('Guardia recuperada');
+  });
+}
+
 // Navegación
 $('prev').onclick=()=>{vista=new Date(vista.getFullYear(),vista.getMonth()-1,1);render()};
 $('next').onclick=()=>{vista=new Date(vista.getFullYear(),vista.getMonth()+1,1);render()};
@@ -243,7 +265,7 @@ function elegirDia(s){sel=s;const d=parse(s);if(d.getMonth()!==vista.getMonth())
 $('grid').addEventListener('click',e=>{const c=e.target.closest('.day');if(c)elegirDia(c.dataset.d)});
 $('grid').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('day')){e.preventDefault();elegirDia(e.target.dataset.d)}});
 for(const id of ['dia-lista','prox-lista']){
-  $(id).addEventListener('click',e=>{const it=e.target.closest('.item');if(!it)return;const ev=eventos.find(x=>x.id===it.dataset.id);if(ev&&id==='prox-lista')elegirDia(ev.fecha);editar(it.dataset.id)});
+  $(id).addEventListener('click',e=>{const del=e.target.closest('.item-del');if(del){e.stopPropagation();borrarTurno(del);return}const it=e.target.closest('.item');if(!it)return;const ev=eventos.find(x=>x.id===it.dataset.id);if(ev&&id==='prox-lista')elegirDia(ev.fecha);editar(it.dataset.id)});
   $(id).addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('item'))e.target.click()});
 }
 
