@@ -2,10 +2,10 @@
 // Estos datos no son secretos: identifican el proyecto. La protección de las guardias está en las reglas
 // de Firestore (firestore.rules) y en el PIN, que nunca se guarda en el código.
 export const FIREBASE_CONFIG = {
-  apiKey: "PEGAR_API_KEY",
-  authDomain: "PEGAR_PROYECTO.firebaseapp.com",
-  projectId: "PEGAR_PROYECTO",
-  storageBucket: "PEGAR_PROYECTO.appspot.com",
-  messagingSenderId: "PEGAR",
-  appId: "PEGAR"
+  apiKey: "AIzaSyBaFTOl4upXRvvnApDcjsSrK2ONevcYTxA",
+  authDomain: "agenda-guardias-5f407.firebaseapp.com",
+  projectId: "agenda-guardias-5f407",
+  storageBucket: "agenda-guardias-5f407.firebasestorage.app",
+  messagingSenderId: "740464770585",
+  appId: "1:740464770585:web:889fb0207271164666b488"
 };
