@@ -78,7 +78,7 @@ button:disabled{opacity:.55;cursor:default}
 .list{display:grid;gap:6px}
 .item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;align-items:start;gap:10px;padding:8px 10px 8px 0;border-radius:8px;cursor:pointer;border:1px solid transparent}
 .item:hover{border-color:var(--line)}
-.item i{border-radius:4px;background:var(--c)}
+.item i{border-radius:4px;background:var(--c);align-self:stretch}
 .item .t{font-weight:700}
 .item .m{font-size:13px;color:var(--muted)}
 .item-del{font-size:13px;padding:4px 10px;color:var(--danger);border-color:transparent;background:transparent;white-space:nowrap}
@@ -271,6 +271,6 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
 </div>
 <div id="toast" hidden></div>
 
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=12"></script>
 </body>
 </html>
