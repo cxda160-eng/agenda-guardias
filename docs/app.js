@@ -116,8 +116,9 @@ function gruposValor(){
   for(const e of eventos){
     if(!COBRABLES.includes(e.tipo)||cedida(e))continue;
     const k=grupoMonto(e);
-    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,valor:0,t:0,fijo:0};
+    const g=m.get(k)||{k,tipo:e.tipo,nombre:lug.get(clave(e.lugar))||(e.nota||'').trim()||'sin lugar',n:0,nMes:0,valor:0,t:0,fijo:0};
     g.n++; if(e.pago==='fijo')g.fijo++;
+    const d=parse(e.fecha); if(d.getFullYear()===vista.getFullYear()&&d.getMonth()===vista.getMonth())g.nMes++;
     const tt=e.editado||e.creado||0; if(e.monto>0&&tt>=g.t){g.valor=e.monto;g.t=tt}
     m.set(k,g);
   }
@@ -128,14 +129,14 @@ const modoGrupo=k=>(gruposValor().find(g=>g.k===k)||{}).modo||'sin';
 let firmaValores='';
 function renderValores(){
   const gs=gruposValor();
-  const firma=JSON.stringify(gs.map(g=>[g.k,g.n,g.valor,g.modo]));
+  const firma=JSON.stringify([vista.getMonth(),gs.map(g=>[g.k,g.n,g.nMes,g.valor,g.modo])]);
   if(firma===firmaValores)return; firmaValores=firma;
   const tb=$('valores-tabla');
   const opc=(i,g)=>`<select id="modo-${i}" aria-label="Cómo se cobra ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}">
       <option value="guardia"${g.modo==='guardia'?' selected':''}>Por guardia</option>
       <option value="fijo"${g.modo==='fijo'?' selected':''}>Sueldo fijo</option>
       <option value="sin"${g.modo==='sin'?' selected':''}>Sin cobro</option></select>`;
-  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Cargadas</th><th>Cobro</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.n}</td><td>${opc(i,g)}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.modo==='guardia'&&g.valor?g.valor:''}" placeholder="—"${g.modo==='guardia'?'':' disabled'} aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
+  tb.innerHTML=gs.length?`<thead><tr><th>Guardia</th><th class="n">Guardias</th><th>Cobro</th><th class="n">Valor bruto ($)</th><th></th></tr></thead><tbody>${gs.map((g,i)=>`<tr><td><span class="chip-dot" style="--c:${color(g.tipo)}"></span>${esc(CORTO[g.tipo])} · ${esc(g.nombre)}</td><td class="n">${g.nMes} en ${MESES[vista.getMonth()].slice(0,3)} · ${g.n} en total</td><td>${opc(i,g)}</td><td class="n"><input type="number" inputmode="numeric" min="0" step="1" id="valor-${i}" value="${g.modo==='guardia'&&g.valor?g.valor:''}" placeholder="—"${g.modo==='guardia'?'':' disabled'} aria-label="Valor de ${esc(CORTO[g.tipo])} en ${esc(g.nombre)}"></td><td><button type="button" data-valor="${i}">Aplicar</button></td></tr>`).join('')}</tbody>`:'';
   tb.dataset.json=JSON.stringify(gs);
   if(!gs.some(g=>g.modo!=='sin'))$('valores').open=true;
 }
