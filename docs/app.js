@@ -100,7 +100,7 @@ function renderStats(){
   const p=eventos.filter(e=>TIPOS[e.tipo]?.guardia&&(e.fecha+' '+(e.ini||'00:00'))>=ahora).sort((a,b)=>(a.fecha+a.ini).localeCompare(b.fecha+b.ini))[0];
   $('s-prox').textContent=p?fechaCorta(p.fecha)+(p.ini?' · '+p.ini:''):'Sin guardias cargadas';
 }
-function render(){renderCal();renderDia();renderProx();renderStats();actualizarSugerencias();vistaPrevia()}
+function render(){renderCal();renderDia();renderProx();renderStats();actualizarSugerencias();vistaPrevia();actualizarOrden()}
 
 // Sincronización en vivo
 function escuchar(){
@@ -321,6 +321,43 @@ $('resp-importar').onclick=async()=>{
     $('resp-texto').value='';toast(lista.length+' turnos importados');
   }catch(err){errGuardar(err)}finally{b.disabled=false}
 };
+
+// Ordenar lugares: unificar escrituras y pasar al campo Lugar los que quedaron en la nota
+function formaPreferida(formas){
+  // con tilde si existe alguna, si no la más usada
+  const con=formas.filter(([f])=>/[^\x00-\x7F]/.test(f));
+  return (con.length?con:formas).sort((a,b)=>b[1]-a[1])[0][0];
+}
+function propuestasOrden(){
+  const m=new Map();
+  for(const e of eventos){const k=clave(e.lugar);if(!k)continue;const x=m.get(k)||new Map();x.set(e.lugar.trim(),(x.get(e.lugar.trim())||0)+1);m.set(k,x)}
+  const canon=new Map([...m.entries()].map(([k,f])=>[k,formaPreferida([...f.entries()])]));
+  const out=[];
+  for(const e of eventos){
+    const k=clave(e.lugar);
+    if(k){ if(canon.get(k)!==e.lugar){out.push({e,lugar:canon.get(k),nota:e.nota||''})} continue }
+    const n=clave(e.nota).replace(/^guardia\s+(en\s+)?/,'');
+    if(n&&canon.has(n))out.push({e,lugar:canon.get(n),nota:''});
+  }
+  return out;
+}
+function actualizarOrden(){
+  const b=$('orden-btn'); if(!b||b.dataset.c)return;
+  const n=propuestasOrden().length;
+  b.disabled=!n; b.textContent=n?`Ordenar ${n} ${n===1?'turno':'turnos'}`:'No hay nada para ordenar';
+}
+$('orden-btn').addEventListener('click',async()=>{
+  const b=$('orden-btn'); const lista=propuestasOrden(); if(!lista.length)return;
+  if(!b.dataset.c){b.dataset.c='1';b.classList.add('primary');b.textContent=`Confirmar: ordenar ${lista.length} turnos`;return}
+  b.disabled=true;
+  try{
+    const batch=writeBatch(db);
+    for(const {e,lugar,nota} of lista)batch.set(doc(turnosCol,e.id),permitido({...e,lugar,nota,editado:Date.now()}));
+    await batch.commit();
+    toast(lista.length+' turnos ordenados');
+  }catch(err){errGuardar(err)}
+  finally{b.dataset.c='';b.classList.remove('primary');actualizarOrden()}
+});
 
 // Sesión
 function mostrarApp(){$('login').hidden=true;$('app').hidden=false;$('l-nueva').hidden=true;resetForm();render();setSync('Conectando…');escuchar()}
