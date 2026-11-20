@@ -101,6 +101,19 @@ textarea{resize:vertical;min-height:54px}
 .login .card{padding:22px}
 .login h1{font-size:30px}
 .err-msg{color:var(--danger);font-size:14px;margin:0}
+.mini{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.rapidos{display:grid;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips:empty{display:none}
+.chip-btn{font-size:13px;line-height:1.2;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.chip-btn i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.chip-btn[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.rep{display:grid;gap:8px}
+.dias{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.dias legend{width:100%;padding:0;margin-bottom:4px}
+.dias label{display:inline-flex;align-items:center;gap:4px;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;cursor:pointer}
+.dias input{width:auto;margin:0}
+#rep-prev{margin:0}
 #respaldo summary{cursor:pointer;list-style-position:inside}
 #respaldo[open]{gap:10px}
 .cal-sync .linkbox{display:flex;gap:8px;flex-wrap:wrap}
@@ -187,25 +200,40 @@ a.btnlink{display:inline-block;text-decoration:none;font-weight:700;border-radiu
       <div class="card" id="form-card">
         <h3 id="form-titulo">Agregar turno</h3>
         <form id="f">
+          <div class="rapidos" id="rapidos-box" hidden>
+            <span class="mini">Accesos rápidos</span>
+            <div class="chips" id="rapidos"></div>
+          </div>
           <label for="f-tipo">Tipo<select id="f-tipo"></select></label>
           <div class="row">
             <label for="f-fecha">Fecha<input id="f-fecha" type="date" required></label>
-            <label for="f-lugar">Lugar<input id="f-lugar" type="text" placeholder="Ej.: UCIN, Hospital…" maxlength="80"></label>
+            <label for="f-lugar">Lugar<input id="f-lugar" type="text" list="lugares" autocomplete="off" placeholder="Elegí o escribí uno nuevo" maxlength="80"></label>
+            <datalist id="lugares"></datalist>
           </div>
+          <div class="chips" id="lugar-chips" aria-label="Lugares usados"></div>
           <div class="row">
             <label for="f-ini">Desde<input id="f-ini" type="time"></label>
             <label for="f-fin">Hasta<input id="f-fin" type="time"></label>
           </div>
-          <div class="row" id="rep-row">
-            <label for="f-rep">Repetir
-              <select id="f-rep">
-                <option value="0">No repetir</option>
-                <option value="3">Cada 3 días</option>
-                <option value="4">Cada 4 días</option>
-                <option value="7">Cada semana</option>
-              </select>
-            </label>
-            <label for="f-veces">Cantidad<input id="f-veces" type="number" min="2" max="30" value="4" disabled></label>
+          <div id="rep-row" class="rep">
+            <div class="row">
+              <label for="f-rep">Repetir
+                <select id="f-rep">
+                  <option value="0">No repetir</option>
+                  <option value="w1">Cada semana, mismo día</option>
+                  <option value="w2">Cada 2 semanas</option>
+                  <option value="dias">Días de la semana que elija</option>
+                  <option value="d3">Cada 3 días</option>
+                  <option value="d4">Cada 4 días</option>
+                </select>
+              </label>
+              <label for="f-hasta">Hasta el<input id="f-hasta" type="date" disabled></label>
+            </div>
+            <fieldset class="dias" id="f-dias" hidden>
+              <legend class="mini">Días</legend>
+              <label><input type="checkbox" value="1">Lun</label><label><input type="checkbox" value="2">Mar</label><label><input type="checkbox" value="3">Mié</label><label><input type="checkbox" value="4">Jue</label><label><input type="checkbox" value="5">Vie</label><label><input type="checkbox" value="6">Sáb</label><label><input type="checkbox" value="0">Dom</label>
+            </fieldset>
+            <p class="note" id="rep-prev" hidden></p>
           </div>
           <label for="f-nota">Nota<textarea id="f-nota" maxlength="300" placeholder="Cambio con un colega, a quién llamar, etc."></textarea></label>
           <div class="actions">

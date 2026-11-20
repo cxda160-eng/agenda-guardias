@@ -1,6 +1,6 @@
 // Service worker: guarda la app para abrirla sin conexión.
 // Los datos los maneja Firebase, que también guarda una copia sin conexión.
-const CACHE = "agenda-guardias-v5";
+const CACHE = "agenda-guardias-v6";
 const BASE = self.registration.scope;
 const SHELL = ["", "index.html", "app.js", "firebase-config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"].map((p) => BASE + p);
 const FIREBASE_SDK = /^https:\/\/www\.gstatic\.com\/firebasejs\//;

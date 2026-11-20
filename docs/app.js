@@ -100,7 +100,7 @@ function renderStats(){
   const p=eventos.filter(e=>TIPOS[e.tipo]?.guardia&&(e.fecha+' '+(e.ini||'00:00'))>=ahora).sort((a,b)=>(a.fecha+a.ini).localeCompare(b.fecha+b.ini))[0];
   $('s-prox').textContent=p?fechaCorta(p.fecha)+(p.ini?' · '+p.ini:''):'Sin guardias cargadas';
 }
-function render(){renderCal();renderDia();renderProx();renderStats()}
+function render(){renderCal();renderDia();renderProx();renderStats();actualizarSugerencias();vistaPrevia()}
 
 // Sincronización en vivo
 function escuchar(){
@@ -118,22 +118,93 @@ window.addEventListener('offline',()=>setSync('Sin conexión · los cambios se g
 const permitido=e=>({tipo:e.tipo,fecha:e.fecha,ini:e.ini||'',fin:e.fin||'',lugar:(e.lugar||'').slice(0,80),nota:(e.nota||'').slice(0,300),creadoPor:(e.creadoPor||'').slice(0,40),creado:Number(e.creado)||Date.now(),...(e.editado?{editado:Number(e.editado)}:{})});
 const errGuardar=err=>{console.error(err);toast(err&&err.code==='permission-denied'?'Firebase rechazó el cambio: revisá las reglas de la base.':'No se pudo guardar el cambio.')};
 
+// Lugares y accesos rápidos, a partir de lo que ya está cargado
+const clave=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const CORTO={g24:'24 h',g12:'12 h',noc:'Nocturna',fel:'Fellowship',con:'Consultorio',plan:'Plan',otro:'Otro'};
+function lugaresUsados(){
+  const m=new Map();
+  for(const e of eventos){const k=clave(e.lugar);if(!k)continue;const x=m.get(k)||{n:0,formas:new Map()};x.n++;x.formas.set(e.lugar.trim(),(x.formas.get(e.lugar.trim())||0)+1);m.set(k,x)}
+  return [...m.values()].sort((a,b)=>b.n-a.n).map(x=>[...x.formas.entries()].sort((a,b)=>b[1]-a[1]||(b[0].normalize('NFD').length-a[0].length))[0][0]);
+}
+function rapidosUsados(){
+  const m=new Map();
+  for(const e of eventos){
+    if(!TIPOS[e.tipo]||e.tipo==='plan')continue;
+    const k=[e.tipo,clave(e.lugar),e.ini||'',e.fin||''].join('|');
+    const x=m.get(k)||{n:0,e};x.n++;m.set(k,x);
+  }
+  const lug=new Map(lugaresUsados().map(l=>[clave(l),l]));
+  return [...m.values()].filter(x=>x.n>=2).sort((a,b)=>b.n-a.n).slice(0,6).map(({e})=>({tipo:e.tipo,ini:e.ini||'',fin:e.fin||'',lugar:lug.get(clave(e.lugar))||''}));
+}
+let firmaSug='';
+function actualizarSugerencias(){
+  const lugares=lugaresUsados(), rap=rapidosUsados();
+  const firma=JSON.stringify([lugares,rap]); if(firma===firmaSug)return; firmaSug=firma;
+  $('lugares').innerHTML=lugares.map(l=>`<option value="${esc(l)}"></option>`).join('');
+  $('lugar-chips').innerHTML=lugares.slice(0,6).map(l=>`<button type="button" class="chip-btn" data-lugar="${esc(l)}">${esc(l)}</button>`).join('');
+  $('rapidos').innerHTML=rap.map((r,i)=>`<button type="button" class="chip-btn" data-r="${i}" style="--c:${color(r.tipo)}"><i></i>${esc(CORTO[r.tipo])}${r.lugar?' · '+esc(r.lugar):''}${r.ini&&r.tipo!=='g24'&&r.tipo!=='noc'?' · '+r.ini:''}</button>`).join('');
+  $('rapidos').dataset.json=JSON.stringify(rap);
+  $('rapidos-box').hidden=!rap.length;
+  marcarLugar();
+}
+function marcarLugar(){const k=clave($('f-lugar').value);$('lugar-chips').querySelectorAll('.chip-btn').forEach(b=>b.setAttribute('aria-pressed',String(clave(b.dataset.lugar)===k&&!!k)))}
+$('lugar-chips').addEventListener('click',e=>{const b=e.target.closest('.chip-btn');if(!b)return;$('f-lugar').value=b.dataset.lugar;marcarLugar()});
+$('f-lugar').addEventListener('input',marcarLugar);
+$('rapidos').addEventListener('click',e=>{
+  const b=e.target.closest('.chip-btn');if(!b)return;
+  const r=JSON.parse($('rapidos').dataset.json||'[]')[Number(b.dataset.r)];if(!r)return;
+  $('f-tipo').value=r.tipo;$('f-ini').value=r.ini;$('f-fin').value=r.fin;$('f-lugar').value=r.lugar;marcarLugar();vistaPrevia();
+  toast(CORTO[r.tipo]+(r.lugar?' · '+r.lugar:'')+': elegí la fecha y guardá');
+});
+
+// Repetición: fechas de una guardia fija
+const MAX_REP=60;
+function fechasRepetidas(desde,modo,hasta,dias){
+  if(modo==='0'||!hasta||hasta<desde)return [desde];
+  const out=[]; const d=parse(desde);
+  if(modo==='dias'){
+    const set=new Set(dias.length?dias:[d.getDay()]);
+    while(iso(d)<=hasta&&out.length<MAX_REP){if(set.has(d.getDay()))out.push(iso(d));d.setDate(d.getDate()+1)}
+  }else{
+    const paso={w1:7,w2:14,d3:3,d4:4}[modo]||7;
+    while(iso(d)<=hasta&&out.length<MAX_REP){out.push(iso(d));d.setDate(d.getDate()+paso)}
+  }
+  return out;
+}
+const diasElegidos=()=>[...$('f-dias').querySelectorAll('input:checked')].map(i=>Number(i.value));
+const yaExiste=(f,tipo,ini)=>eventos.some(e=>e.fecha===f&&e.tipo===tipo&&(e.ini||'')===ini);
+function vistaPrevia(){
+  const modo=$('f-rep').value, p=$('rep-prev');
+  $('f-hasta').disabled=modo==='0'; $('f-dias').hidden=modo!=='dias';
+  if(modo==='0'||editId){p.hidden=true;return}
+  const fecha=$('f-fecha').value;
+  if(!$('f-hasta').value&&fecha){const d=parse(fecha);d.setDate(d.getDate()+28);$('f-hasta').value=iso(d)}
+  if(modo==='dias'&&!diasElegidos().length&&fecha){const cb=$('f-dias').querySelector(`input[value="${parse(fecha).getDay()}"]`);if(cb)cb.checked=true}
+  const todas=fechasRepetidas(fecha,modo,$('f-hasta').value,diasElegidos());
+  const nuevas=todas.filter(f=>!yaExiste(f,$('f-tipo').value,$('f-ini').value));
+  p.hidden=false;
+  if(!fecha||!todas.length){p.textContent='Elegí la fecha de inicio y hasta cuándo.';return}
+  p.textContent=`Se van a cargar ${nuevas.length} ${nuevas.length===1?'turno':'turnos'}${nuevas.length?` (${fechaCorta(nuevas[0])} → ${fechaCorta(nuevas[nuevas.length-1])})`:''}`+
+    (todas.length>nuevas.length?`. ${todas.length-nuevas.length} ya estaban cargados y no se repiten.`:'.')+(todas.length>=MAX_REP?` Máximo ${MAX_REP} por vez.`:'');
+}
+['f-rep','f-hasta','f-fecha','f-tipo','f-ini'].forEach(id=>$(id).addEventListener('change',vistaPrevia));
+$('f-dias').addEventListener('change',vistaPrevia);
+
 // Formulario
 function aplicarTipo(){const t=TIPOS[$('f-tipo').value];$('f-ini').value=t.ini;$('f-fin').value=t.fin}
 function resetForm(){
   editId=null;$('f').reset();$('f-tipo').value='g24';aplicarTipo();$('f-fecha').value=sel;
-  $('f-veces').disabled=true;$('rep-row').hidden=false;
+  $('f-hasta').value='';$('f-dias').querySelectorAll('input').forEach(i=>i.checked=false);$('rep-row').hidden=false;marcarLugar();vistaPrevia();
   $('form-titulo').textContent='Agregar turno';$('f-cancelar').hidden=true;$('f-borrar').hidden=true;$('f-borrar').textContent='Eliminar';$('f-borrar').dataset.c='';
 }
 function editar(id){
   const e=eventos.find(x=>x.id===id);if(!e)return;
   editId=id;$('f-tipo').value=TIPOS[e.tipo]?e.tipo:'otro';$('f-fecha').value=e.fecha;$('f-ini').value=e.ini||'';$('f-fin').value=e.fin||'';
-  $('f-lugar').value=e.lugar||'';$('f-nota').value=e.nota||'';$('rep-row').hidden=true;
+  $('f-lugar').value=e.lugar||'';$('f-nota').value=e.nota||'';$('rep-row').hidden=true;marcarLugar();
   $('form-titulo').textContent='Editar turno';$('f-cancelar').hidden=false;$('f-borrar').hidden=false;$('f-borrar').textContent='Eliminar';$('f-borrar').dataset.c='';
   $('form-card').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'nearest'});
 }
 $('f-tipo').addEventListener('change',aplicarTipo);
-$('f-rep').addEventListener('change',()=>{$('f-veces').disabled=$('f-rep').value==='0'});
 $('f-cancelar').addEventListener('click',resetForm);
 $('f-borrar').addEventListener('click',()=>{
   const b=$('f-borrar');
@@ -151,11 +222,14 @@ $('f').addEventListener('submit',ev=>{
     setDoc(doc(turnosCol,editId),permitido({...base,creadoPor:prev.creadoPor||sesion.nombre,creado:prev.creado,editado:Date.now()})).catch(errGuardar);
     toast('Cambios guardados');
   }else{
-    const paso=Number($('f-rep').value),veces=paso?Math.min(30,Math.max(2,Number($('f-veces').value)||2)):1;
+    const modo=$('f-rep').value;
+    let fechas=fechasRepetidas(fecha,modo,$('f-hasta').value,diasElegidos());
+    if(modo!=='0')fechas=fechas.filter(f=>!yaExiste(f,base.tipo,base.ini));
+    if(!fechas.length){toast('Esas guardias ya estaban cargadas.');return}
     const batch=writeBatch(db);
-    for(let i=0;i<veces;i++){const d=parse(fecha);d.setDate(d.getDate()+i*paso);batch.set(doc(turnosCol,crypto.randomUUID()),permitido({...base,fecha:iso(d),creado:Date.now()}))}
+    for(const f of fechas)batch.set(doc(turnosCol,crypto.randomUUID()),permitido({...base,fecha:f,creado:Date.now()}));
     batch.commit().catch(errGuardar);
-    toast(veces>1?veces+' turnos agregados':'Turno agregado');
+    toast(fechas.length>1?fechas.length+' turnos agregados':'Turno agregado');
   }
   sel=fecha;resetForm();render();
 });
